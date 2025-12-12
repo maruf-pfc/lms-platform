@@ -15,32 +15,34 @@ export default function CourseDetailsPage() {
     const [enrollLoading, setEnrollLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const { user, isAuthenticated } = useAuthStore();
+    const { user, isAuthenticated, checkAuth } = useAuthStore();
     const { enrollCourse } = useCourseStore();
     const router = useRouter();
 
     // Helper to check if enrolled
-    const isEnrolled = user?.enrolledCourses?.some(e => e.course === id || e.course._id === id);
+    const isEnrolled = user?.enrolledCourses?.some(e =>
+        (typeof e.course === 'string' && e.course === id) ||
+        (e.course?._id === id) ||
+        (e.course?.toString() === id) ||
+        (e.course?._id?.toString() === id)
+    );
 
     useEffect(() => {
         const fetchDetails = async () => {
             try {
-                const { data } = await api.get(`/courses/${id}`);
-                setCourse(data);
-                // Mock modules fetch if API doesn't return them formatted fully
-                // But our seed data didn't expose modules in getCourseById yet.
-                // We need to implement getModulesForCourse backend or populate it.
-                // For now, let's assume getCourseById populates modules? 
-                // Wait, backend getCourseById didn't populate modules! (It was ref? No, Course model doesn't ref Modules. Modules ref Course.)
-                // I need to add an endpoint to get modules for a course.
+                const res = await api.get(`/courses/${id}`);
+                setCourse(res.data);
+                // If backend /courses/:id returns modules, we are good.
+                // Otherwise fetch modules separately: const modRes = await api.get(`/courses/${id}/modules`); setModules(modRes.data);
             } catch (err) {
-                setError("Failed to load course");
+                setError(err.message);
+                console.error("Failed to load course", err);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchDetails();
+        if (id) fetchDetails();
     }, [id]);
 
     const handleEnroll = async () => {
@@ -49,11 +51,9 @@ export default function CourseDetailsPage() {
         setEnrollLoading(true);
         try {
             await enrollCourse(id);
+            await checkAuth(); // Refresh user state
             alert("Enrolled successfully!");
             router.refresh();
-            // Re-fetch user to update enrolled list
-            // In a real app, useAuthStore should handle re-fetching 'me'.
-            // For now, simple redirect
             router.push('/dashboard');
         } catch (err) {
             alert(err);
@@ -87,9 +87,9 @@ export default function CourseDetailsPage() {
 
                     <div className="mt-8">
                         {isEnrolled ? (
-                            <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:bg-green-700 transition">
+                            <Link href={`/learning/${course._id}`} className="inline-block bg-green-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:bg-green-700 transition">
                                 Continue Learning
-                            </button>
+                            </Link>
                         ) : (
                             <button
                                 onClick={handleEnroll}

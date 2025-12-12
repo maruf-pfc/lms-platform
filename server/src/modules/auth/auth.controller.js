@@ -34,5 +34,8 @@ exports.getMe = async (req, res) => {
     id: req.user.id,
     role: req.user.role,
     email: req.user.email,
+    name: req.user.name,
+    points: req.user.points,
+    enrolledCourses: req.user.enrolledCourses
   });
 };

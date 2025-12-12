@@ -1,0 +1,117 @@
+const Post = require("./post.model");
+
+// Create Post
+exports.createPost = async (req, res, next) => {
+    try {
+        const { title, content, type, tags, image } = req.body;
+        const post = await Post.create({
+            title,
+            content,
+            type, // 'blog' or 'forum'
+            tags,
+            image,
+            author: req.user.id
+        });
+        res.status(201).json(post);
+    } catch (err) { next(err); }
+};
+
+// Get All Posts (with filters)
+exports.getAllPosts = async (req, res, next) => {
+    try {
+        const { type, sort } = req.query;
+        let query = {};
+        if (type) query.type = type;
+
+        let sortOption = { createdAt: -1 }; // Default: Newest
+        if (sort === 'top') {
+            // Sort by upvotes count descending
+            // Mongoose sorting by array length is tricky without aggregation
+            // Simple approach: sort by 'upvotes' array length? No, need aggregate field or just sort client side if small.
+            // Better: use aggregate.
+        }
+
+        let posts;
+        if (sort === 'top') {
+            posts = await Post.aggregate([
+                { $match: query },
+                { $addFields: { upvotesCount: { $size: "$upvotes" } } },
+                { $sort: { upvotesCount: -1 } },
+                { $lookup: { from: "users", localField: "author", foreignField: "_id", as: "author" } },
+                { $unwind: "$author" },
+                { $project: { "author.passwordHash": 0 } }
+            ]);
+        } else {
+            posts = await Post.find(query)
+                .sort(sortOption)
+                .populate("author", "name avatar role");
+        }
+
+        res.json(posts);
+    } catch (err) { next(err); }
+};
+
+// Get Single Post
+exports.getPostById = async (req, res, next) => {
+    try {
+        const post = await Post.findById(req.params.id)
+            .populate("author", "name avatar")
+            .populate("comments.user", "name avatar");
+
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        // Increment views
+        post.views += 1;
+        await post.save();
+
+        res.json(post);
+    } catch (err) { next(err); }
+};
+
+// Add Comment
+exports.addComment = async (req, res, next) => {
+    try {
+        const { content } = req.body;
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        post.comments.push({
+            user: req.user.id,
+            content
+        });
+        await post.save();
+
+        // return updated post or just comment?
+        // Let's return updated post to refresh UI
+        const updatedPost = await Post.findById(req.params.id)
+            .populate("author", "name avatar")
+            .populate("comments.user", "name avatar");
+
+        res.json(updatedPost);
+    } catch (err) { next(err); }
+};
+
+// Toggle Vote
+exports.votePost = async (req, res, next) => {
+    try {
+        const { voteType } = req.body; // 'up' or 'down'
+        const userId = req.user.id;
+        const post = await Post.findById(req.params.id);
+
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        // Remove existing votes
+        post.upvotes = post.upvotes.filter(id => id.toString() !== userId);
+        post.downvotes = post.downvotes.filter(id => id.toString() !== userId);
+
+        if (voteType === 'up') {
+            post.upvotes.push(userId);
+        } else if (voteType === 'down') {
+            post.downvotes.push(userId);
+        }
+        // If voteType not provided or null, it effectively clears vote (toggle off)
+
+        await post.save();
+        res.json(post);
+    } catch (err) { next(err); }
+};

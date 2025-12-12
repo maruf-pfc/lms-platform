@@ -37,6 +37,17 @@ export const useAuthStore = create(
                 }
             },
 
+            checkAuth: async () => {
+                try {
+                    const { data } = await api.get('/auth/me');
+                    set({ user: data, isAuthenticated: true });
+                } catch (error) {
+                    // Optional: logout if 401?
+                    // set({ user: null, token: null, isAuthenticated: false }); 
+                    // Better not to auto-logout on every error, maybe just dont update
+                }
+            },
+
             logout: () => {
                 set({ user: null, token: null, isAuthenticated: false });
             },

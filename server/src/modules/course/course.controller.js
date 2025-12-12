@@ -21,6 +21,29 @@ exports.createCourse = async (req, res, next) => {
     }
 };
 
+exports.updateCourse = async (req, res, next) => {
+    try {
+        const { title, description, category, thumbnail } = req.body;
+        const course = await Course.findById(req.params.id);
+
+        if (!course) return res.status(404).json({ message: "Course not found" });
+        // Check ownership
+        if (course.instructor.toString() !== req.user.id) {
+            return res.status(403).json({ message: "Not authorized" });
+        }
+
+        course.title = title || course.title;
+        course.description = description || course.description;
+        course.category = category || course.category;
+        course.thumbnail = thumbnail || course.thumbnail;
+
+        await course.save();
+        res.json(course);
+    } catch (err) {
+        next(err);
+    }
+};
+
 exports.getAllCourses = async (req, res, next) => {
     try {
         const courses = await Course.find()
@@ -205,6 +228,187 @@ exports.submitMCQ = async (req, res, next) => {
             message: cheated ? "Cheating detected! Quiz failed." : passed ? "Quiz Passed!" : "Quiz Failed. Try again."
         });
 
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.addModule = async (req, res, next) => {
+    try {
+        const { id } = req.params; // courseId
+        const { title, order } = req.body;
+
+        const module = await Module.create({
+            course: id,
+            title,
+            order: order || 0,
+            subModules: []
+        });
+
+        res.status(201).json(module);
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.addLesson = async (req, res, next) => {
+    try {
+        const { id, moduleId } = req.params;
+        const { title, type, content, duration, url, questions } = req.body;
+
+        // video, text, mcq
+        const newLesson = {
+            title,
+            type, // 'video', 'text', 'mcq'
+            content, // for text
+            videoUrl: url, // for video
+            duration: duration || 0,
+            questions: questions || [], // for mcq
+        };
+
+        const module = await Module.findById(moduleId);
+        if (!module) return res.status(404).json({ message: "Module not found" });
+
+        module.subModules.push(newLesson);
+        await module.save();
+
+        res.status(201).json(module);
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.updateModule = async (req, res, next) => {
+    try {
+        const { moduleId } = req.params;
+        const { title } = req.body;
+        const module = await Module.findByIdAndUpdate(moduleId, { title }, { new: true });
+        res.json(module);
+    } catch (err) { next(err); }
+};
+
+exports.deleteModule = async (req, res, next) => {
+    try {
+        const { moduleId } = req.params;
+        await Module.findByIdAndDelete(moduleId);
+        res.json({ message: "Module deleted" });
+    } catch (err) { next(err); }
+};
+
+exports.reorderModules = async (req, res, next) => {
+    try {
+        const { modules } = req.body; // Array of { id, order }
+
+        const updates = modules.map(({ id, order }) => ({
+            updateOne: {
+                filter: { _id: id },
+                update: { order }
+            }
+        }));
+
+        if (updates.length > 0) {
+            await Module.bulkWrite(updates);
+        }
+        res.json({ message: "Modules reordered" });
+    } catch (err) { next(err); }
+};
+
+exports.updateLesson = async (req, res, next) => {
+    try {
+        const { moduleId, lessonId } = req.params;
+        const { title, type, content, url, duration, questions } = req.body;
+
+        const module = await Module.findById(moduleId);
+        if (!module) return res.status(404).json({ message: "Module not found" });
+
+        const lesson = module.subModules.id(lessonId);
+        if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+
+        if (title) lesson.title = title;
+        if (type) lesson.type = type;
+        if (content !== undefined) lesson.content = content;
+        if (url !== undefined) lesson.videoUrl = url;
+        if (duration !== undefined) lesson.duration = duration;
+        if (questions) lesson.questions = questions;
+
+        await module.save();
+        res.json(module);
+    } catch (err) { next(err); }
+};
+
+exports.deleteLesson = async (req, res, next) => {
+    try {
+        const { moduleId, lessonId } = req.params;
+        const module = await Module.findById(moduleId);
+        if (!module) return res.status(404).json({ message: "Module not found" });
+
+        module.subModules.pull(lessonId);
+        await module.save();
+        res.json(module);
+    } catch (err) { next(err); }
+};
+exports.submitProject = async (req, res, next) => {
+    try {
+        const { id: courseId, moduleId } = req.params;
+        const { repoUrl } = req.body;
+        const userId = req.user.id;
+
+        if (!repoUrl || !repoUrl.includes("github.com")) {
+            return res.status(400).json({ message: "Invalid GitHub URL" });
+        }
+
+        // Reuse completion logic
+        // We could also store the URL in a separate collection or inside enrollment
+        // For now, we'll just log it and mark complete as per requirement
+        console.log(`User ${userId} submitted project for module ${moduleId}: ${repoUrl}`);
+
+        // Call markModuleCompleted logic internally or redirect?
+        // Better to just duplicate the essential completion logic or call a shared helper.
+        // For simplicity in this phase, I'll copy the core completion logic.
+
+        const user = await User.findById(userId);
+        const enrollment = user.enrolledCourses.find(e => e.course.toString() === courseId);
+
+        if (!enrollment) return res.status(403).json({ message: "Not enrolled" });
+
+        if (!enrollment.completedModules.includes(moduleId)) {
+            enrollment.completedModules.push(moduleId);
+
+            // Validate sequence (Optional: if we want to enforce sequence even for projects)
+            // ... assuming modules are ordered and project is a module.
+
+            const modules = await Module.find({ course: courseId }).sort("order");
+            enrollment.progress = Math.round((enrollment.completedModules.length / modules.length) * 100);
+
+            if (enrollment.completedModules.length === modules.length) {
+                enrollment.completedAt = new Date();
+                user.points += 200; // Big bonus for project?
+            } else {
+                user.points += 50; // Project points
+            }
+            await user.save();
+        }
+
+        res.json({ message: "Project submitted and marked as complete!" });
+
+    } catch (err) {
+        next(err);
+    }
+};
+exports.getInstructorStats = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const courses = await Course.find({ instructor: userId });
+
+        const totalStudents = courses.reduce((acc, course) => acc + course.enrolledCount, 0);
+        // Mock earning: $10 per student
+        const totalEarnings = totalStudents * 10;
+
+        res.json({
+            courses,
+            totalStudents,
+            totalEarnings
+        });
     } catch (err) {
         next(err);
     }
