@@ -86,6 +86,10 @@ lms-platform/
 
 ---
 
+## Database Schema
+
+![Database Schema](https://drawsql.app/teams/mms-15/diagrams/build-to-learn)
+
 ## ⚡ Getting Started
 
 ### Prerequisites
