@@ -1,18 +1,13 @@
 import Link from 'next/link';
 import { BookOpen, ArrowRight, CheckCircle } from 'lucide-react';
+import Footer from '@/components/layout/Footer';
+import Navbar from '@/components/layout/Navbar';
 
 export default function Home() {
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-blue-900 to-gray-900 text-white flex flex-col">
-      <nav className="p-6 max-w-7xl mx-auto w-full flex justify-between items-center">
-        <div className="flex items-center gap-2 font-bold text-xl">
-          <BookOpen className="text-blue-400" /> LMS Platform
-        </div>
-        <div className="space-x-4">
-          <Link href="/login" className="px-4 py-2 hover:text-blue-300 transition">Log In</Link>
-          <Link href="/register" className="px-4 py-2 bg-blue-600 rounded-lg font-bold hover:bg-blue-500 transition">Get Started</Link>
-        </div>
-      </nav>
+      <Navbar />
 
       <main className="flex-1 flex flex-col items-center justify-center text-center px-4">
         <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-200 to-white">
@@ -50,10 +45,7 @@ export default function Home() {
           </div>
         </div>
       </main>
-
-      <footer className="p-8 text-center text-gray-500 text-sm">
-        © 2025 LMS Platform. Built with Next.js & Node.js.
-      </footer>
-    </div>
+<Footer />
+    </div></>
   );
 }

@@ -10,5 +10,7 @@ router.get("/:id", controller.getPostById);
 router.post("/", auth, controller.createPost);
 router.post("/:id/comments", auth, controller.addComment);
 router.post("/:id/vote", auth, controller.votePost);
+router.put("/:id", auth, controller.updatePost);
+router.delete("/:id", auth, controller.deletePost);
 
 module.exports = router;

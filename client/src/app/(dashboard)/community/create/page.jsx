@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ import { Image as ImageIcon, Code } from 'lucide-react';
 export default function CreatePostPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const editId = searchParams.get('edit');
     const defaultType = searchParams.get('type') || 'forum'; // 'forum' or 'blog'
 
     const [postData, setPostData] = useState({
@@ -21,6 +22,29 @@ export default function CreatePostPage() {
     });
     const [loading, setLoading] = useState(false);
 
+    // Fetch existing data if editing
+    useEffect(() => {
+        if (editId) {
+             const fetchPost = async () => {
+                try {
+                    const res = await api.get(`/community/${editId}`);
+                    const p = res.data;
+                    setPostData({
+                        title: p.title,
+                        type: p.type,
+                        content: p.content,
+                        tags: p.tags?.join(', ') || '',
+                        image: p.image || ''
+                    });
+                } catch (err) {
+                    toast.error('Failed to load post for editing');
+                    router.push('/forum');
+                }
+            };
+            fetchPost();
+        }
+    }, [editId]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -30,11 +54,19 @@ export default function CreatePostPage() {
                 ...postData,
                 tags: postData.tags.split(',').map(t => t.trim()).filter(Boolean)
             };
-            await api.post('/community', payload);
-            toast.success('Post created!');
-            router.push(postData.type === 'blog' ? '/blog' : '/forum');
+            if (editId) {
+                await api.put(`/community/${editId}`, payload);
+                toast.success('Post updated!');
+            } else {
+                await api.post('/community', payload);
+                toast.success('Post created!');
+            }
+            // router.push(postData.type === 'blog' ? '/blog' : '/forum');
+            // Better to redirect to the post itself
+            if (editId) router.push(`/community/${editId}`);
+            else router.push(postData.type === 'blog' ? '/blog' : '/forum');
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to create post');
+            toast.error(err.response?.data?.message || `Failed to ${editId ? 'update' : 'create'} post`);
         } finally {
             setLoading(false);
         }
@@ -45,7 +77,7 @@ export default function CreatePostPage() {
         if (!file) return;
 
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('image', file);
 
         try {
             const toastId = toast.loading('Uploading image...');
@@ -61,7 +93,7 @@ export default function CreatePostPage() {
 
     return (
         <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-8 text-gray-900">Create New {postData.type === 'blog' ? 'Blog Post' : 'Forum Discussion'}</h1>
+            <h1 className="text-3xl font-bold mb-8 text-gray-900">{editId ? 'Edit Post' : `Create New ${postData.type === 'blog' ? 'Blog Post' : 'Forum Discussion'}`}</h1>
 
             <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
                 <div className="flex gap-4 mb-4">
@@ -129,7 +161,7 @@ export default function CreatePostPage() {
 
                 <div className="pt-4 flex justify-end">
                     <button disabled={loading} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition">
-                        {loading ? 'Publishing...' : 'Publish Post'}
+                        {loading ? 'Publishing...' : (editId ? 'Update Post' : 'Publish Post')}
                     </button>
                 </div>
             </form>

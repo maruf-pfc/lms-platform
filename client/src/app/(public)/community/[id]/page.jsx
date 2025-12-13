@@ -73,24 +73,54 @@ export default function PostDetailsPage() {
         <div className="p-8 max-w-5xl mx-auto">
             {/* Post Header */}
             <div className="bg-white p-8 rounded-xl shadow-sm border mb-6">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
-                        {post.author?.avatar ? (
-                            <img src={post.author.avatar} className="w-full h-full object-cover" />
-                        ) : (
-                            <User className="w-full h-full p-2 text-gray-500" />
-                        )}
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900 leading-tight">{post.title}</h1>
-                        <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                            <span className="font-medium text-gray-700">{post.author?.name}</span>
-                            <span>•</span>
-                            <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
-                            <span>•</span>
-                            <span className="bg-gray-100 px-2 py-0.5 rounded uppercase text-xs font-bold">{post.type}</span>
+                <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
+                            {post.author?.avatar ? (
+                                <img src={post.author.avatar} className="w-full h-full object-cover" />
+                            ) : (
+                                <User className="w-full h-full p-2 text-gray-500" />
+                            )}
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900 leading-tight">{post.title}</h1>
+                            <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+                                <span className="font-medium text-gray-700">{post.author?.name}</span>
+                                <span>•</span>
+                                <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
+                                <span>•</span>
+                                <span className="bg-gray-100 px-2 py-0.5 rounded uppercase text-xs font-bold">{post.type}</span>
+                            </div>
                         </div>
                     </div>
+
+                    {/* Author Actions */}
+                    {user && post.author && user.id === post.author._id && (
+                        <div className="flex gap-2">
+                             <button
+                                onClick={() => router.push(`/community/create?edit=${post._id}`)}
+                                className="px-3 py-1.5 border hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if(confirm('Are you sure you want to delete this post?')) {
+                                        try {
+                                           await api.delete(`/community/${post._id}`);
+                                           toast.success('Post deleted');
+                                           router.push('/forum'); // Default redirect
+                                        } catch(err) {
+                                            toast.error('Failed to delete');
+                                        }
+                                    }
+                                }}
+                                className="px-3 py-1.5 border border-red-200 hover:bg-red-50 text-red-600 rounded-lg text-sm font-medium transition"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {post.image && (

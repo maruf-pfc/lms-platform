@@ -1,6 +1,6 @@
 const app = require("./app");
 const connectDB = require("./db");
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3340;
 
 // connect to database first
 connectDB().then(() => {

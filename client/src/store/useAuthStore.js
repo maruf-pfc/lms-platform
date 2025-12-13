@@ -14,7 +14,6 @@ export const useAuthStore = create(
                     const { data } = await api.post('/auth/login', { email, password });
                     set({
                         user: data.user,
-                        token: data.token,
                         isAuthenticated: true,
                     });
                     return data;
@@ -28,7 +27,6 @@ export const useAuthStore = create(
                     const { data } = await api.post('/auth/register', userData);
                     set({
                         user: data.user,
-                        token: data.token,
                         isAuthenticated: true,
                     });
                     return data;
@@ -42,14 +40,18 @@ export const useAuthStore = create(
                     const { data } = await api.get('/auth/me');
                     set({ user: data, isAuthenticated: true });
                 } catch (error) {
-                    // Optional: logout if 401?
-                    // set({ user: null, token: null, isAuthenticated: false }); 
-                    // Better not to auto-logout on every error, maybe just dont update
+                     set({ user: null, isAuthenticated: false });
                 }
             },
 
-            logout: () => {
-                set({ user: null, token: null, isAuthenticated: false });
+            logout: async () => {
+                try {
+                    await api.post('/auth/logout');
+                    set({ user: null, isAuthenticated: false });
+                } catch (error) {
+                    console.error("Logout failed", error);
+                    set({ user: null, isAuthenticated: false });
+                }
             },
 
             // Add a method to hydrate state if needed, but persist handles it

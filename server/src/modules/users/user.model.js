@@ -15,6 +15,35 @@ const UserSchema = new Schema(
 
     avatar: { type: String, default: null },
     bio: { type: String, default: "" },
+    headline: { type: String, default: "" },
+    cv: { type: String, default: null }, // URL to CV file
+
+    skills: [{ type: String }],
+    
+    experience: [{
+        company: String,
+        role: String,
+        startDate: Date,
+        endDate: Date,
+        description: String,
+        current: { type: Boolean, default: false }
+    }],
+    
+    education: [{
+        school: String,
+        degree: String,
+        fieldOfStudy: String,
+        startDate: Date,
+        endDate: Date,
+        description: String
+    }],
+
+    socialLinks: {
+        website: String,
+        linkedin: String,
+        github: String,
+        twitter: String
+    },
 
     points: { type: Number, default: 0 }, // gamification
 

@@ -33,7 +33,9 @@ export default function CreateCoursePage() {
         type: 'video',
         content: '',
         url: '',
+        url: '',
         duration: 0,
+        questions: [], // Array of { questionText, options: [], correctAnswer: '', points: 10 }
     });
 
     const [editingModuleId, setEditingModuleId] = useState(null);
@@ -148,7 +150,7 @@ export default function CreateCoursePage() {
             }
             // Reset
             setEditingLessonId(null);
-            setLessonData({ title: '', type: 'video', content: '', url: '', duration: 0 });
+            setLessonData({ title: '', type: 'video', content: '', url: '', duration: 0, questions: [] });
             // Keep modal open? No, maybe close it or keep generic. 
             // If I want to add another, I can click add again.
             // But if I was editing, I should definitely reset.
@@ -359,6 +361,133 @@ export default function CreateCoursePage() {
                                                         value={lessonData.content}
                                                         onChange={(val) => setLessonData({ ...lessonData, content: val })}
                                                     />
+                                                </div>
+                                            )}
+
+                                            {lessonData.type === 'mcq' && (
+                                                <div className="space-y-4 border p-4 rounded bg-white">
+                                                    <h3 className="font-bold text-gray-700">Quiz Questions</h3>
+                                                    
+                                                    {lessonData.questions && lessonData.questions.map((q, qIdx) => (
+                                                        <div key={qIdx} className="border p-4 rounded-lg bg-gray-50 relative">
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newQ = [...lessonData.questions];
+                                                                    newQ.splice(qIdx, 1);
+                                                                    setLessonData({ ...lessonData, questions: newQ });
+                                                                }}
+                                                                className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
+                                                            >
+                                                                <Trash size={16} />
+                                                            </button>
+                                                            
+                                                            <div className="mb-2">
+                                                                <label className="block text-xs font-bold text-gray-500 mb-1">Question {qIdx + 1}</label>
+                                                                <input 
+                                                                    className="w-full border p-2 rounded"
+                                                                    placeholder="Enter question text"
+                                                                    value={q.questionText}
+                                                                    onChange={(e) => {
+                                                                        const newQ = [...lessonData.questions];
+                                                                        newQ[qIdx].questionText = e.target.value;
+                                                                        setLessonData({ ...lessonData, questions: newQ });
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            <div className="my-2">
+                                                                <label className="block text-xs font-bold text-gray-500 mb-1">Options</label>
+                                                                {q.options.map((opt, oIdx) => (
+                                                                    <div key={oIdx} className="flex gap-2 mb-2">
+                                                                         <input 
+                                                                            className="flex-1 border p-1 rounded text-sm"
+                                                                            placeholder={`Option ${oIdx + 1}`}
+                                                                            value={opt}
+                                                                            onChange={(e) => {
+                                                                                const newQ = [...lessonData.questions];
+                                                                                newQ[qIdx].options[oIdx] = e.target.value;
+                                                                                // If this option was correct and changed, we might need to update correctAnswer logic if we stored index, but we store string. 
+                                                                                // Ideally we update the string too if it matches, but for now simple input.
+                                                                                setLessonData({ ...lessonData, questions: newQ });
+                                                                            }}
+                                                                        />
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                 const newQ = [...lessonData.questions];
+                                                                                 newQ[qIdx].options.splice(oIdx, 1);
+                                                                                 setLessonData({ ...lessonData, questions: newQ });
+                                                                            }}
+                                                                            className="text-red-400 hover:text-red-600"
+                                                                        >
+                                                                            <Trash size={14} />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const newQ = [...lessonData.questions];
+                                                                        newQ[qIdx].options.push('');
+                                                                        setLessonData({ ...lessonData, questions: newQ });
+                                                                    }}
+                                                                    className="text-xs text-blue-600 font-bold hover:underline"
+                                                                >
+                                                                    + Add Option
+                                                                </button>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-2 gap-4 mt-3">
+                                                                <div>
+                                                                    <label className="block text-xs font-bold text-gray-500 mb-1">Correct Answer</label>
+                                                                    <select 
+                                                                        className="w-full border p-2 rounded"
+                                                                        value={q.correctAnswer}
+                                                                        onChange={(e) => {
+                                                                            const newQ = [...lessonData.questions];
+                                                                            newQ[qIdx].correctAnswer = e.target.value;
+                                                                            setLessonData({ ...lessonData, questions: newQ });
+                                                                        }}
+                                                                    >
+                                                                        <option value="">Select Correct Option</option>
+                                                                        {q.options.map((opt, i) => (
+                                                                            opt && <option key={i} value={opt}>{opt}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                     <label className="block text-xs font-bold text-gray-500 mb-1">Points</label>
+                                                                     <input 
+                                                                        type="number"
+                                                                        className="w-full border p-2 rounded"
+                                                                        value={q.points}
+                                                                        onChange={(e) => {
+                                                                            const newQ = [...lessonData.questions];
+                                                                            newQ[qIdx].points = parseInt(e.target.value) || 0;
+                                                                            setLessonData({ ...lessonData, questions: newQ });
+                                                                        }}
+                                                                     />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setLessonData({
+                                                                ...lessonData,
+                                                                questions: [
+                                                                    ...(lessonData.questions || []),
+                                                                    { questionText: '', options: ['', '', '', ''], correctAnswer: '', points: 10 }
+                                                                ]
+                                                            });
+                                                        }}
+                                                        className="w-full py-2 border-2 border-dashed border-gray-300 rounded text-gray-500 hover:border-blue-500 hover:text-blue-500 transition font-bold"
+                                                    >
+                                                        + Add Question
+                                                    </button>
                                                 </div>
                                             )}
 

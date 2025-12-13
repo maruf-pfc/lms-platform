@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { Eye, Edit3, Image as ImageIcon } from 'lucide-react';
 import ImageUpload from './ImageUpload';
 
@@ -76,7 +78,28 @@ export default function MarkdownEditor({ value, onChange, label }) {
                         />
                     ) : (
                         <div className="prose prose-blue max-w-none p-4 min-h-[300px]">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            <ReactMarkdown 
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    code({node, inline, className, children, ...props}) {
+                                        const match = /language-(\w+)/.exec(className || '')
+                                        return !inline && match ? (
+                                            <SyntaxHighlighter
+                                                {...props}
+                                                style={vscDarkPlus}
+                                                language={match[1]}
+                                                PreTag="div"
+                                            >
+                                                {String(children).replace(/\n$/, '')}
+                                            </SyntaxHighlighter>
+                                        ) : (
+                                            <code {...props} className={className}>
+                                                {children}
+                                            </code>
+                                        )
+                                    }
+                                }}
+                            >
                                 {value || '*(Nothing to preview)*'}
                             </ReactMarkdown>
                         </div>

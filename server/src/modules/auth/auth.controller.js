@@ -4,14 +4,20 @@ exports.register = async (req, res, next) => {
   try {
     const { name, email, password, role } = req.body;
 
-    const result = await authService.register({
+    const { token, user } = await authService.register({
       name,
       email,
       password,
       role,
     });
 
-    res.json(result);
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.json({ user });
   } catch (err) {
     next(err);
   }
@@ -21,21 +27,29 @@ exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const result = await authService.login(email, password);
+    const { token, user } = await authService.login(email, password);
 
-    res.json(result);
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.json({ user });
   } catch (err) {
     next(err);
   }
 };
 
 exports.getMe = async (req, res) => {
-  res.json({
-    id: req.user.id,
-    role: req.user.role,
-    email: req.user.email,
-    name: req.user.name,
-    points: req.user.points,
-    enrolledCourses: req.user.enrolledCourses
-  });
+  // Return full user profile (excluding passwordHash which middleware should handle or we explicitly exclude)
+  // Assuming req.user is the mongoose doc
+  const user = req.user.toObject();
+  delete user.passwordHash;
+  res.json(user);
+};
+
+exports.logout = async (req, res) => {
+    res.clearCookie('token');
+    res.json({ message: 'Logged out successfully' });
 };

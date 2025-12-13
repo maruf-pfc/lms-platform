@@ -115,3 +115,44 @@ exports.votePost = async (req, res, next) => {
         res.json(post);
     } catch (err) { next(err); }
 };
+// Update Post
+exports.updatePost = async (req, res, next) => {
+    try {
+        const { title, content, tags, image, type } = req.body;
+        const post = await Post.findById(req.params.id);
+
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        // Check ownership
+        if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: "Not authorized to update this post" });
+        }
+
+        post.title = title || post.title;
+        post.content = content || post.content;
+        post.tags = tags || post.tags;
+        post.image = image || post.image;
+        // Ideally enforce type consistency, or allow change? Let's allow change if user wants.
+        post.type = type || post.type;
+
+        await post.save();
+        res.json(post);
+    } catch (err) { next(err); }
+};
+
+// Delete Post
+exports.deletePost = async (req, res, next) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        // Check ownership (or admin)
+        if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: "Not authorized to delete this post" });
+        }
+
+        await post.deleteOne();
+        res.json({ message: "Post deleted successfully" });
+    } catch (err) { next(err); }
+};

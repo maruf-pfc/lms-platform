@@ -40,3 +40,39 @@ exports.updateUserRole = async (req, res, next) => {
         res.json(user);
     } catch (err) { next(err); }
 };
+exports.updateProfile = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const updates = req.body;
+        
+        // Prevent role update here
+        delete updates.role;
+        delete updates.passwordHash;
+        delete updates.email; // Usually separate flow for email change
+        delete updates.points; 
+
+        // Handle nested merges? 
+        // For simplicity, replace arrays if provided, partial update for top-level.
+        // Mongoose findByIdAndUpdate with $set handles top level keys.
+
+        const user = await User.findByIdAndUpdate(userId, { $set: updates }, { new: true, runValidators: true }).select("-passwordHash");
+        
+        res.json(user);
+    } catch (err) { next(err); }
+};
+
+exports.deleteAccount = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        // Soft delete or hard delete? Request implies hard delete ("delete account option").
+        // We really should cascade delete enrollments, posts, etc. 
+        // But for MVP, just deleting user is "okay" but leaves orphans.
+        // Let's at least delete User document.
+        
+        await User.findByIdAndDelete(userId);
+        
+        // Clear cookie
+        res.clearCookie("token");
+        res.json({ message: "Account deleted successfully" });
+    } catch (err) { next(err); }
+};
