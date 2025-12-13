@@ -6,10 +6,12 @@ export const useCourseStore = create((set) => ({
     isLoading: false,
     error: null,
 
-    fetchCourses: async () => {
+    fetchCourses: async (params = {}) => {
         set({ isLoading: true });
         try {
-            const { data } = await api.get('/courses');
+            // Build query string
+            const queryString = new URLSearchParams(params).toString();
+            const { data } = await api.get(`/courses?${queryString}`);
             set({ courses: data, isLoading: false });
         } catch (error) {
             set({ error: error.message, isLoading: false });

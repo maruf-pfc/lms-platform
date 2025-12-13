@@ -4,40 +4,33 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash, ChevronRight, ChevronDown, Video, FileText, HelpCircle, Edit2, GripVertical, Trash2, Code } from 'lucide-react';
+import { 
+    Plus, Trash, ChevronRight, Video, FileText, HelpCircle, 
+    Edit2, GripVertical, Trash2, Code, Settings, Save, ArrowLeft, Layout 
+} from 'lucide-react';
 import MarkdownEditor from '@/components/ui/MarkdownEditor';
+import QuestionEditor from '@/components/instructor/QuestionEditor';
+import Modal from '@/components/ui/Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 export default function EditCoursePage() {
     const router = useRouter();
     const { courseId } = useParams();
-    const [activeTab, setActiveTab] = useState('modules'); // 'modules' or 'settings'
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    // Course Data
-    const [courseData, setCourseData] = useState({
-        title: '',
-        description: '',
-        category: '',
-        thumbnail: '',
-    });
-
-    // Modules State
+    // Data
+    const [courseData, setCourseData] = useState(null);
     const [modules, setModules] = useState([]);
-    const [newModuleTitle, setNewModuleTitle] = useState('');
-
-    // Lesson Modal
-    const [activeModuleId, setActiveModuleId] = useState(null);
-    const [editingLessonId, setEditingLessonId] = useState(null);
-    const [lessonData, setLessonData] = useState({
-        title: '',
-        type: 'video',
-        content: '',
-        url: '',
-        duration: 0,
-    });
-
-    const [editingModuleId, setEditingModuleId] = useState(null);
-    const [editingModuleTitle, setEditingModuleTitle] = useState('');
+    
+    // UI State
+    const [activeTab, setActiveTab] = useState('editor'); // 'editor', 'settings'
+    const [selectedLesson, setSelectedLesson] = useState(null); // { moduleId, lesson }
+    const [lessonForm, setLessonForm] = useState(null); // Local edit state
 
     useEffect(() => {
         fetchCourseData();
@@ -46,307 +39,447 @@ export default function EditCoursePage() {
     const fetchCourseData = async () => {
         try {
             const res = await api.get(`/courses/${courseId}`);
-            const course = res.data;
-            setCourseData({
-                title: course.title,
-                description: course.description,
-                category: course.category,
-                thumbnail: course.thumbnail || '',
-            });
-            // Ideally backend getCourse returns modules or we fetch them separately
-            // If getCourse includes modules:
-            if (course.modules) {
-                setModules(course.modules);
-            } else {
-                // Fetch modules explicitly if not included
-                // const modRes = await api.get(`/courses/${courseId}/modules`);
-                // setModules(modRes.data);
-            }
+            setCourseData(res.data);
+            setModules(res.data.modules || []);
             setLoading(false);
         } catch (err) {
-            toast.error('Failed to load course details');
+            toast.error('Failed to load course');
             setLoading(false);
         }
     };
 
-    const updateCourse = async (e) => {
+    // --- Modals State ---
+    const [isModuleModalOpen, setIsModuleModalOpen] = useState(false);
+    const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
+    const [tempTitle, setTempTitle] = useState('');
+    const [targetModuleId, setTargetModuleId] = useState(null); // For adding lesson
+
+    // --- Module Actions ---
+
+    const openModuleModal = () => {
+        setTempTitle('');
+        setIsModuleModalOpen(true);
+    };
+
+    const handleAddModule = async (e) => {
         e.preventDefault();
-        try {
-            await api.put(`/courses/${courseId}`, courseData);
-            toast.success('Course details updated!');
-        } catch (err) {
-            toast.error('Failed to update course');
-        }
-    };
-
-    const addModule = async () => {
-        if (!newModuleTitle) return;
+        if (!tempTitle.trim()) return;
+        
         try {
             const res = await api.post(`/courses/${courseId}/modules`, {
-                title: newModuleTitle,
+                title: tempTitle,
                 order: modules.length
             });
             setModules([...modules, { ...res.data, subModules: [] }]);
-            setNewModuleTitle('');
             toast.success('Module added');
+            setIsModuleModalOpen(false);
         } catch (err) {
             toast.error('Failed to add module');
         }
     };
 
     const deleteModule = async (moduleId) => {
-        if (!confirm('Are you sure you want to delete this module?')) return;
+        if (!confirm('Delete this module and all its lessons?')) return;
         try {
             await api.delete(`/courses/${courseId}/modules/${moduleId}`);
             setModules(modules.filter(m => m._id !== moduleId));
+            if (selectedLesson?.moduleId === moduleId) {
+                setSelectedLesson(null);
+                setLessonForm(null);
+            }
             toast.success('Module deleted');
         } catch (err) {
             toast.error('Failed to delete module');
         }
     };
 
-    const updateModuleTitle = async (moduleId) => {
-        try {
-            const res = await api.put(`/courses/${courseId}/modules/${moduleId}`, { title: editingModuleTitle });
-            setModules(modules.map(m => m._id === moduleId ? res.data : m));
-            setEditingModuleId(null);
-            toast.success('Module updated');
-        } catch (err) {
-            toast.error('Failed to update module');
-        }
+    // --- Lesson Actions ---
+
+    const openLessonModal = (moduleId) => {
+        setTargetModuleId(moduleId);
+        setTempTitle('');
+        setIsLessonModalOpen(true);
     };
 
-    const saveLesson = async (e) => {
+    const handleAddLesson = async (e) => {
         e.preventDefault();
-        if (!activeModuleId) return;
+        if (!tempTitle.trim() || !targetModuleId) return;
+
+        // Default new lesson
+        const newLesson = {
+            title: tempTitle,
+            type: 'video',
+            content: '',
+            url: '',
+            questions: []
+        };
 
         try {
-            let res;
-            if (editingLessonId) {
-                res = await api.put(`/courses/${courseId}/modules/${activeModuleId}/lessons/${editingLessonId}`, lessonData);
-                toast.success('Lesson updated');
-            } else {
-                res = await api.post(`/courses/${courseId}/modules/${activeModuleId}/lessons`, lessonData);
-                toast.success('Lesson added');
+            const res = await api.post(`/courses/${courseId}/modules/${targetModuleId}/lessons`, newLesson);
+            const updatedModule = res.data; // Assuming backend returns updated module
+            
+            setModules(modules.map(m => m._id === targetModuleId ? updatedModule : m));
+            
+            // Auto-select the new lesson
+            if (updatedModule.subModules && updatedModule.subModules.length > 0) {
+                 const lastLesson = updatedModule.subModules[updatedModule.subModules.length - 1];
+                 selectLesson(targetModuleId, lastLesson);
             }
-            // res.data is the updated module usually? Or lesson?
-            // Earlier implementation: backend returns updated MODULE
-            // Verification: check backend implementation.
-            // If we assume backend returns updated module:
-            setModules(modules.map(m => m._id === activeModuleId ? res.data : m));
-
-            // Reset
-            setEditingLessonId(null);
-            setLessonData({ title: '', type: 'video', content: '', url: '', duration: 0 });
+            toast.success('Lesson created');
+            setIsLessonModalOpen(false);
         } catch (err) {
-            toast.error('Failed to save lesson');
+            console.error(err);
+            toast.error('Failed to create lesson');
         }
     };
 
-    const deleteLesson = async (moduleId, lessonId) => {
+    const deleteLesson = async (moduleId, lessonId, e) => {
+        e.stopPropagation();
         if (!confirm('Delete this lesson?')) return;
         try {
             const res = await api.delete(`/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`);
             setModules(modules.map(m => m._id === moduleId ? res.data : m));
+             if (selectedLesson?.lesson._id === lessonId) {
+                setSelectedLesson(null);
+                setLessonForm(null);
+            }
             toast.success('Lesson deleted');
         } catch (err) {
             toast.error('Failed to delete lesson');
         }
     };
 
-    const startEditLesson = (moduleId, lesson) => {
-        setActiveModuleId(moduleId);
-        setEditingLessonId(lesson._id);
-        setLessonData({
-            title: lesson.title,
-            type: lesson.type,
-            content: lesson.content || '',
-            url: lesson.url || '',
-            duration: lesson.duration || 0
-        });
+    const selectLesson = (moduleId, lesson) => {
+        setSelectedLesson({ moduleId, lesson });
+        setLessonForm({ ...lesson }); // Copy data to form
     };
 
-    if (loading) return <div className="p-8">Loading Course...</div>;
+    const saveActiveLesson = async () => {
+        if (!selectedLesson || !lessonForm) return;
+        setSaving(true);
+        try {
+            const { moduleId, lesson } = selectedLesson;
+            const res = await api.put(`/courses/${courseId}/modules/${moduleId}/lessons/${lesson._id}`, lessonForm);
+            
+            // Update local modules state
+            setModules(modules.map(m => m._id === moduleId ? res.data : m));
+            
+            // Update selection reference
+            const updatedModule = res.data;
+            const updatedLesson = updatedModule.subModules.find(l => l._id === lesson._id);
+            setSelectedLesson({ moduleId, lesson: updatedLesson });
+            
+            toast.success('Lesson saved');
+        } catch (err) {
+            toast.error('Failed to save lesson');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // --- Course Settings ---
+    const updateCourseSettings = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            await api.put(`/courses/${courseId}`, courseData);
+            toast.success('Course settings updated');
+        } catch (err) {
+            toast.error('Failed to update settings');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+
+    if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
     return (
-        <div className="p-8 max-w-5xl mx-auto">
-            <header className="mb-8 flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-900">Edit Course: {courseData.title}</h1>
-                <div className="flex gap-2">
-                    <button onClick={() => setActiveTab('modules')} className={`px-4 py-2 rounded-lg font-bold ${activeTab === 'modules' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>Modules</button>
-                    <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg font-bold ${activeTab === 'settings' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>Settings</button>
-                </div>
-            </header>
-
-            {activeTab === 'settings' && (
-                <form onSubmit={updateCourse} className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+        <div className="flex h-screen bg-background overflow-hidden">
+            <Modal isOpen={isModuleModalOpen} onClose={() => setIsModuleModalOpen(false)} title="Add New Module">
+                <form onSubmit={handleAddModule} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">Course Title</label>
-                        <input
-                            className="w-full border p-2 rounded-lg"
-                            value={courseData.title}
-                            onChange={(e) => setCourseData({ ...courseData, title: e.target.value })}
-                            required
+                        <Label>Module Title</Label>
+                        <Input 
+                            autoFocus
+                            className="mt-1"
+                            placeholder="e.g. Introduction to React"
+                            value={tempTitle}
+                            onChange={e => setTempTitle(e.target.value)}
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Description</label>
-                        <textarea
-                            className="w-full border p-2 rounded-lg h-32"
-                            value={courseData.description}
-                            onChange={(e) => setCourseData({ ...courseData, description: e.target.value })}
-                            required
-                        />
-                    </div>
-                    {/* Add more setting fields like category/thumbnail */}
-                    <button className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold">Save Changes</button>
+                    <Button type="submit" className="w-full">Create Module</Button>
                 </form>
-            )}
+            </Modal>
 
-            {activeTab === 'modules' && (
-                <div className="space-y-6">
-                    {/* Add Module */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border flex gap-4">
-                        <input
-                            className="flex-1 border p-2 rounded-lg"
-                            placeholder="New Module Title..."
-                            value={newModuleTitle}
-                            onChange={(e) => setNewModuleTitle(e.target.value)}
+            <Modal isOpen={isLessonModalOpen} onClose={() => setIsLessonModalOpen(false)} title="Add New Lesson">
+                <form onSubmit={handleAddLesson} className="space-y-4">
+                     <div>
+                        <Label>Lesson Title</Label>
+                        <Input 
+                            autoFocus
+                            className="mt-1"
+                            placeholder="e.g. Setting up the environment"
+                            value={tempTitle}
+                            onChange={e => setTempTitle(e.target.value)}
                         />
-                        <button onClick={addModule} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold">Add Module</button>
                     </div>
+                    <Button type="submit" className="w-full">Create Lesson</Button>
+                </form>
+            </Modal>
 
-                    {/* Modules List - Reuse Loop */}
-                    <div className="space-y-4">
-                        {modules.map((module) => (
-                            <div key={module._id} className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                                {/* Header */}
-                                <div className="p-4 bg-gray-50 items-center justify-between flex border-b">
-                                    <div className="flex items-center gap-3 flex-1">
-                                        <GripVertical className="text-gray-400" size={20} />
-                                        {editingModuleId === module._id ? (
-                                            <div className="flex gap-2 flex-1 mr-4">
-                                                <input
-                                                    className="border p-1 rounded px-2 w-full"
-                                                    value={editingModuleTitle}
-                                                    onChange={e => setEditingModuleTitle(e.target.value)}
-                                                />
-                                                <button onClick={() => updateModuleTitle(module._id)} className="bg-blue-600 text-white px-3 rounded text-sm">Save</button>
-                                                <button onClick={() => setEditingModuleId(null)} className="text-gray-500 text-sm">Cancel</button>
-                                            </div>
-                                        ) : (
-                                            <h3 className="font-bold text-lg text-gray-800 cursor-pointer hover:text-blue-600" onClick={() => {
-                                                setEditingModuleId(module._id);
-                                                setEditingModuleTitle(module.title);
-                                            }}>
-                                                {module.title} <span className="text-xs text-gray-400 ml-2 font-normal">(Click to edit)</span>
-                                            </h3>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <button onClick={() => deleteModule(module._id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 size={18} /></button>
-                                        <button
-                                            onClick={() => {
-                                                if (activeModuleId === module._id) {
-                                                    setActiveModuleId(null);
-                                                } else {
-                                                    setActiveModuleId(module._id);
-                                                    setEditingLessonId(null);
-                                                    setLessonData({ title: '', type: 'video', content: '', url: '', duration: 0 });
-                                                }
-                                            }}
-                                            className={`text-sm font-semibold px-3 py-1.5 rounded transition ${activeModuleId === module._id ? 'bg-blue-100 text-blue-700' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-                                        >
-                                            {activeModuleId === module._id ? 'Cancel' : '+ Add Lesson'}
-                                        </button>
-                                    </div>
+            {/* Sidebar / Module List */}
+            <div className="w-80 bg-card border-r flex flex-col h-full z-10">
+                <div className="p-4 border-b flex items-center justify-between">
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+                        <ArrowLeft size={20} />
+                    </Button>
+                    <span className="font-bold text-card-foreground truncate px-2">{courseData?.title}</span>
+                    <Button 
+                        variant={activeTab === 'settings' ? 'secondary' : 'ghost'} 
+                        size="icon"
+                        onClick={() => setActiveTab('settings')}
+                    >
+                        <Settings size={20} />
+                    </Button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                    {activeTab === 'settings' ? (
+                        <div className="text-center py-10">
+                            <Settings size={48} className="mx-auto text-muted-foreground mb-4" />
+                            <p className="text-muted-foreground">Settings Open</p>
+                            <Button variant="link" onClick={() => setActiveTab('editor')} className="mt-4">Back to Editor</Button>
+                        </div>
+                    ) : (
+                        modules.map((module, mIdx) => (
+                            <div key={module._id} className="space-y-2">
+                                <div className="flex items-center justify-between group">
+                                    <h3 className="font-bold text-muted-foreground text-sm uppercase tracking-wide flex items-center gap-2">
+                                        <Badge variant="outline" className="w-6 h-6 flex items-center justify-center rounded-full p-0">{mIdx + 1}</Badge>
+                                        {module.title}
+                                    </h3>
+                                    <Button variant="ghost" size="icon" onClick={() => deleteModule(module._id)} className="opacity-0 group-hover:opacity-100 h-6 w-6 text-muted-foreground hover:text-destructive">
+                                        <Trash2 size={14} />
+                                    </Button>
                                 </div>
 
-                                {/* Lessons inside Module */}
-                                <div className="p-4 space-y-2">
-                                    {module.subModules && module.subModules.map((lesson, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200">
-                                            <div className="flex items-center gap-3">
-                                                {lesson.type === 'video' && <Video size={18} className="text-blue-500" />}
-                                                {lesson.type === 'text' && <FileText size={18} className="text-green-500" />}
-                                                {lesson.type === 'mcq' && <HelpCircle size={18} className="text-yellow-500" />}
-                                                {lesson.type === 'project' && <Code size={18} className="text-purple-500" />}
-                                                <span className="font-medium text-gray-700">{lesson.title}</span>
+                                <div className="space-y-1 ml-2 pl-4 border-l-2 border-border">
+                                    {module.subModules?.map((lesson) => (
+                                        <button
+                                            key={lesson._id}
+                                            onClick={() => selectLesson(module._id, lesson)}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-sm text-left group transition-colors ${
+                                                selectedLesson?.lesson._id === lesson._id 
+                                                ? 'bg-accent text-accent-foreground font-medium' 
+                                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                {lesson.type === 'video' && <Video size={14} />}
+                                                {lesson.type === 'text' && <FileText size={14} />}
+                                                {lesson.type === 'mcq' && <HelpCircle size={14} />}
+                                                {lesson.type === 'project' && <Code size={14} />}
+                                                <span className="truncate">{lesson.title}</span>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => startEditLesson(module._id, lesson)} className="text-blue-400 hover:text-blue-600"><Edit2 size={16} /></button>
-                                                <button onClick={() => deleteLesson(module._id, lesson._id)} className="text-red-400 hover:text-red-600"><Trash size={16} /></button>
+                                            <div 
+                                                onClick={(e) => deleteLesson(module._id, lesson._id, e)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded"
+                                            >
+                                                <Trash size={12} />
+                                            </div>
+                                        </button>
+                                    ))}
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => openLessonModal(module._id)}
+                                        className="w-full justify-start text-xs text-muted-foreground"
+                                    >
+                                        <Plus size={14} className="mr-2" /> Add Lesson
+                                    </Button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                    
+                    {activeTab !== 'settings' && (
+                        <Button 
+                            variant="outline" 
+                            className="w-full border-dashed"
+                            onClick={openModuleModal}
+                        >
+                            + Add Section
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
+                {activeTab === 'settings' ? (
+                     <div className="flex-1 overflow-y-auto p-8">
+                         <div className="max-w-2xl mx-auto">
+                            <h2 className="text-2xl font-bold mb-6">Course Settings</h2>
+                            <form onSubmit={updateCourseSettings} className="bg-card p-8 rounded-2xl shadow-sm border space-y-6">
+                                <div>
+                                    <Label>Title</Label>
+                                    <Input 
+                                        className="mt-1"
+                                        value={courseData?.title || ''}
+                                        onChange={e => setCourseData({...courseData, title: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Description</Label>
+                                    <textarea 
+                                        className="w-full border p-3 rounded-lg bg-background h-32 focus:outline-none focus:ring-1 focus:ring-ring"
+                                        value={courseData?.description || ''}
+                                        onChange={e => setCourseData({...courseData, description: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Category</Label>
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                                        value={courseData?.category || ''}
+                                        onChange={e => setCourseData({...courseData, category: e.target.value})}
+                                    >
+                                        <option value="">Select...</option>
+                                        <option value="Web Development">Web Development</option>
+                                        <option value="Backend Engineering">Backend Engineering</option>
+                                        <option value="UI / UX Design">UI / UX Design</option>
+                                        <option value="Data Structures">Data Structures</option>
+                                        <option value="Databases">Databases</option>
+                                        <option value="DevOps">DevOps</option>
+                                        <option value="Career Skills">Career Skills</option>
+                                        <option value="Programming Basics">Programming Basics</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label>Thumbnail URL</Label>
+                                    <Input 
+                                        className="mt-1"
+                                        value={courseData?.thumbnail || ''}
+                                        onChange={e => setCourseData({...courseData, thumbnail: e.target.value})}
+                                    />
+                                </div>
+                                <div className="pt-4 border-t">
+                                    <Button disabled={saving} className="w-full">
+                                        {saving ? 'Saving...' : 'Save Changes'}
+                                    </Button>
+                                </div>
+                            </form>
+                         </div>
+                     </div>
+                ) : (
+                    selectedLesson ? (
+                        <div className="flex-1 flex flex-col h-full">
+                            {/* Toolbar */}
+                            <div className="bg-card border-b px-8 py-4 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                     <div className={`p-2 rounded-lg bg-accent text-accent-foreground`}>
+                                        {lessonForm.type === 'video' && <Video size={20} />}
+                                        {lessonForm.type === 'mcq' && <HelpCircle size={20} />}
+                                        {lessonForm.type === 'project' && <Code size={20} />}
+                                        {lessonForm.type === 'text' && <FileText size={20} />}
+                                     </div>
+                                     <Input 
+                                        className="text-lg font-bold border-none shadow-none focus-visible:ring-0 px-0 h-auto"
+                                        value={lessonForm.title}
+                                        onChange={e => setLessonForm({...lessonForm, title: e.target.value})}
+                                        placeholder="Lesson Title"
+                                     />
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <select 
+                                        className="border rounded-md px-3 py-2 text-sm bg-background"
+                                        value={lessonForm.type}
+                                        onChange={e => setLessonForm({...lessonForm, type: e.target.value})}
+                                    >
+                                        <option value="video">Video Lesson</option>
+                                        <option value="text">Written / Markdown</option>
+                                        <option value="mcq">Quiz (MCQ)</option>
+                                        <option value="project">Project Assignment</option>
+                                    </select>
+                                    <Button 
+                                        onClick={saveActiveLesson}
+                                        disabled={saving}
+                                    >
+                                        {saving ? 'Saving...' : <><Save size={16} className="mr-2" /> Save</>}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Content Editor */}
+                            <div className="flex-1 overflow-y-auto p-8">
+                                <div className="max-w-4xl mx-auto">
+                                    {lessonForm.type === 'video' && (
+                                        <div className="space-y-6">
+                                            <Card>
+                                                <CardContent className="pt-6">
+                                                    <Label>Video URL</Label>
+                                                    <Input 
+                                                        className="mt-2"
+                                                        placeholder="YouTube embed URL..."
+                                                        value={lessonForm.url || ''}
+                                                        onChange={e => setLessonForm({...lessonForm, url: e.target.value})}
+                                                    />
+                                                    <p className="text-xs text-muted-foreground mt-2">Supports YouTube, Vimeo, or direct MP4 links.</p>
+                                                </CardContent>
+                                            </Card>
+                                            {lessonForm.url && (
+                                                <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-lg">
+                                                    <iframe 
+                                                        src={lessonForm.url.replace('watch?v=', 'embed/')} 
+                                                        className="w-full h-full" 
+                                                        allowFullScreen 
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {(lessonForm.type === 'text' || lessonForm.type === 'project') && (
+                                        <div className="space-y-4">
+                                            {lessonForm.type === 'project' && (
+                                                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-purple-800 text-sm mb-4 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-300">
+                                                     <strong>Project Type:</strong> Students will be asked to submit a GitHub repository link for this lesson. Use the editor below to describe the project requirements.
+                                                 </div>
+                                            )}
+                                            <div className="bg-card rounded-xl border min-h-[500px] flex flex-col">
+                                                <MarkdownEditor 
+                                                    value={lessonForm.content || ''}
+                                                    onChange={val => setLessonForm({...lessonForm, content: val})}
+                                                />
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+                                    )}
 
-                                {/* Lesson Editor Form */}
-                                {activeModuleId === module._id && (
-                                    <div className="p-6 bg-blue-50/50 border-t">
-                                        <h4 className="font-bold text-sm mb-4 text-gray-700 uppercase tracking-wide">
-                                            {editingLessonId ? 'Edit Lesson' : 'New Lesson'} Details
-                                        </h4>
-                                        <form onSubmit={saveLesson} className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-xs font-bold text-gray-500 mb-1">Title</label>
-                                                    <input
-                                                        className="w-full border p-2 rounded"
-                                                        value={lessonData.title}
-                                                        onChange={e => setLessonData({ ...lessonData, title: e.target.value })}
-                                                        required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-bold text-gray-500 mb-1">Type</label>
-                                                    <select
-                                                        className="w-full border p-2 rounded"
-                                                        value={lessonData.type}
-                                                        onChange={e => setLessonData({ ...lessonData, type: e.target.value })}
-                                                    >
-                                                        <option value="video">Video</option>
-                                                        <option value="text">Text / Article / Markdown</option>
-                                                        <option value="mcq">Quiz (MCQ)</option>
-                                                        <option value="project">Project / Assignment</option>
-                                                    </select>
-                                                </div>
+                                    {lessonForm.type === 'mcq' && (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-6">
+                                                 <h3 className="text-xl font-bold">Quiz Builder</h3>
+                                                 <span className="text-sm text-muted-foreground">{lessonForm.questions?.length || 0} Questions</span>
                                             </div>
-
-                                            {lessonData.type === 'video' && (
-                                                <div>
-                                                    <label className="block text-xs font-bold text-gray-500 mb-1">Video URL</label>
-                                                    <input
-                                                        className="w-full border p-2 rounded"
-                                                        value={lessonData.url}
-                                                        onChange={e => setLessonData({ ...lessonData, url: e.target.value })}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {(lessonData.type === 'text' || lessonData.type === 'project') && (
-                                                <div>
-                                                    <label className="block text-xs font-bold text-gray-500 mb-1">
-                                                        {lessonData.type === 'project' ? 'Project Instructions' : 'Content (Markdown)'}
-                                                    </label>
-                                                    <MarkdownEditor
-                                                        value={lessonData.content}
-                                                        onChange={(val) => setLessonData({ ...lessonData, content: val })}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 w-full md:w-auto">
-                                                Save Lesson
-                                            </button>
-                                        </form>
-                                    </div>
-                                )}
+                                            <QuestionEditor 
+                                                questions={lessonForm.questions || []}
+                                                onChange={newQuestions => setLessonForm({...lessonForm, questions: newQuestions})}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+                        </div>
+                    ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+                             <Layout size={64} className="mb-4 opacity-20" />
+                             <p>Select a lesson from the sidebar to edit</p>
+                             <p className="text-sm">or create a new one.</p>
+                        </div>
+                    )
+                )}
+            </div>
         </div>
     );
 }

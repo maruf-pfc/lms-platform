@@ -7,6 +7,9 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { Eye, Edit3, Image as ImageIcon } from 'lucide-react';
 import ImageUpload from './ImageUpload';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 export default function MarkdownEditor({ value, onChange, label }) {
     const [view, setView] = useState('write'); // 'write' | 'preview'
@@ -20,64 +23,76 @@ export default function MarkdownEditor({ value, onChange, label }) {
 
     return (
         <div className="space-y-2">
-            {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
+            {label && <label className="block text-sm font-medium text-foreground">{label}</label>}
 
-            <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
+            <div className="border border-input rounded-lg overflow-hidden bg-background shadow-sm">
                 {/* Toolbar */}
-                <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b">
-                    <div className="flex gap-2">
-                        <button
+                <div className="flex items-center justify-between px-2 py-2 bg-muted/40 border-b border-input">
+                    <div className="flex gap-1">
+                        <Button
                             type="button"
+                            variant={view === 'write' ? 'secondary' : 'ghost'}
+                            size="sm"
                             onClick={() => setView('write')}
-                            className={`p-2 rounded hover:bg-gray-200 transition ${view === 'write' ? 'bg-white shadow text-blue-600' : 'text-gray-600'}`}
                             title="Write"
+                            className="h-8 w-8 p-0"
                         >
-                            <Edit3 size={18} />
-                        </button>
-                        <button
+                            <Edit3 size={16} />
+                        </Button>
+                        <Button
                             type="button"
+                            variant={view === 'preview' ? 'secondary' : 'ghost'}
+                            size="sm"
                             onClick={() => setView('preview')}
-                            className={`p-2 rounded hover:bg-gray-200 transition ${view === 'preview' ? 'bg-white shadow text-blue-600' : 'text-gray-600'}`}
                             title="Preview"
+                            className="h-8 w-8 p-0"
                         >
-                            <Eye size={18} />
-                        </button>
+                            <Eye size={16} />
+                        </Button>
                     </div>
                     <div>
-                        <button
+                        <Button
                             type="button"
+                            variant={showImageUploader ? 'secondary' : 'ghost'}
+                            size="sm"
                             onClick={() => setShowImageUploader(!showImageUploader)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition ${showImageUploader ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-200 text-gray-700'
-                                }`}
+                            className="h-8 px-2 text-xs"
                         >
-                            <ImageIcon size={16} /> Insert Image
-                        </button>
+                            <ImageIcon size={16} className="mr-2" /> Insert Image
+                        </Button>
                     </div>
                 </div>
 
                 {/* Image Uploader Panel */}
                 {showImageUploader && (
-                    <div className="p-4 bg-gray-50 border-b">
+                    <div className="p-4 bg-muted/20 border-b border-input">
                         <ImageUpload
                             label="Upload image to insert"
                             value=""
                             onChange={handleImageUpload}
                         />
-                        <button onClick={() => setShowImageUploader(false)} className="text-xs text-red-500 mt-2 hover:underline">Cancel</button>
+                        <Button 
+                            variant="link" 
+                            size="sm" 
+                            onClick={() => setShowImageUploader(false)} 
+                            className="text-destructive h-auto p-0 mt-2"
+                        >
+                            Cancel
+                        </Button>
                     </div>
                 )}
 
                 {/* Editor / Preview Area */}
-                <div className="min-h-[300px]">
+                <div className="min-h-[300px] relative">
                     {view === 'write' ? (
-                        <textarea
-                            className="w-full h-full min-h-[300px] p-4 focus:outline-none resize-y font-mono text-sm"
+                        <Textarea
+                            className="w-full h-full min-h-[300px] p-4 border-0 rounded-none focus-visible:ring-0 resize-y font-mono text-sm bg-background"
                             value={value}
                             onChange={(e) => onChange(e.target.value)}
                             placeholder="Write in markdown..."
                         />
                     ) : (
-                        <div className="prose prose-blue max-w-none p-4 min-h-[300px]">
+                        <div className="prose prose-blue dark:prose-invert max-w-none p-4 min-h-[300px] bg-background">
                             <ReactMarkdown 
                                 remarkPlugins={[remarkGfm]}
                                 components={{
@@ -106,7 +121,7 @@ export default function MarkdownEditor({ value, onChange, label }) {
                     )}
                 </div>
             </div>
-            <p className="text-xs text-gray-500 text-right">Supports Markdown & GFM</p>
+            <p className="text-xs text-muted-foreground text-right">Supports Markdown & GFM</p>
         </div>
     );
 }

@@ -46,9 +46,35 @@ exports.updateCourse = async (req, res, next) => {
 
 exports.getAllCourses = async (req, res, next) => {
     try {
-        const courses = await Course.find()
+        const { search, category, minPrice, maxPrice, level } = req.query;
+
+        const query = {};
+
+        // Search by title or description
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        // Filter by category
+        if (category && category !== 'All') {
+            query.category = category;
+        }
+
+        // Filter by level (if you have this field, otherwise ignore or add it to model)
+        // For now, assuming you might want to filter by difficulty/level if it exists
+        if (level && level !== 'All') {
+             query.level = level;
+        }
+
+
+
+        const courses = await Course.find(query)
             .populate("instructor", "name email")
             .select("-students"); // Don't fetch all students list
+            
         res.json(courses);
     } catch (err) {
         next(err);

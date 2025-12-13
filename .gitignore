@@ -1,5 +1,4 @@
 node_modules
 .next
-note.md
-.env
 docs
+.env

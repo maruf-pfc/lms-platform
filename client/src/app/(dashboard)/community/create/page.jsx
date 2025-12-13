@@ -1,17 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import MarkdownEditor from '@/components/ui/MarkdownEditor';
-import { Image as ImageIcon, Code } from 'lucide-react';
+import { Image as ImageIcon, Code, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 
-export default function CreatePostPage() {
+function CreatePostContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const editId = searchParams.get('edit');
-    const defaultType = searchParams.get('type') || 'forum'; // 'forum' or 'blog'
+    const defaultType = searchParams.get('type') || 'forum';
 
     const [postData, setPostData] = useState({
         title: '',
@@ -22,7 +26,6 @@ export default function CreatePostPage() {
     });
     const [loading, setLoading] = useState(false);
 
-    // Fetch existing data if editing
     useEffect(() => {
         if (editId) {
              const fetchPost = async () => {
@@ -61,8 +64,6 @@ export default function CreatePostPage() {
                 await api.post('/community', payload);
                 toast.success('Post created!');
             }
-            // router.push(postData.type === 'blog' ? '/blog' : '/forum');
-            // Better to redirect to the post itself
             if (editId) router.push(`/community/${editId}`);
             else router.push(postData.type === 'blog' ? '/blog' : '/forum');
         } catch (err) {
@@ -92,79 +93,101 @@ export default function CreatePostPage() {
     };
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-8 text-gray-900">{editId ? 'Edit Post' : `Create New ${postData.type === 'blog' ? 'Blog Post' : 'Forum Discussion'}`}</h1>
+        <Card>
+            <CardContent className="p-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="flex gap-4">
+                        <Button
+                            type="button"
+                            variant={postData.type === 'forum' ? 'default' : 'outline'}
+                            onClick={() => setPostData({ ...postData, type: 'forum' })}
+                            className="flex-1"
+                        >
+                            Forum
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={postData.type === 'blog' ? 'default' : 'outline'}
+                            onClick={() => setPostData({ ...postData, type: 'blog' })}
+                            className="flex-1"
+                        >
+                            Blog
+                        </Button>
+                    </div>
 
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
-                <div className="flex gap-4 mb-4">
-                    <button
-                        type="button"
-                        onClick={() => setPostData({ ...postData, type: 'forum' })}
-                        className={`flex-1 py-2 rounded-lg font-bold border ${postData.type === 'forum' ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        Forum
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setPostData({ ...postData, type: 'blog' })}
-                        className={`flex-1 py-2 rounded-lg font-bold border ${postData.type === 'blog' ? 'bg-purple-600 text-white border-purple-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        Blog
-                    </button>
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium mb-1">Title</label>
-                    <input
-                        className="w-full border p-3 rounded-lg text-lg font-semibold"
-                        placeholder="Enter a descriptive title..."
-                        value={postData.title}
-                        onChange={e => setPostData({ ...postData, title: e.target.value })}
-                        required
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium mb-1">Content (Markdown Supported)</label>
-                    <MarkdownEditor
-                        value={postData.content}
-                        onChange={(val) => setPostData({ ...postData, content: val })}
-                    />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Tags (comma separated)</label>
-                        <input
-                            className="w-full border p-2 rounded-lg"
-                            placeholder="javascript, react, help..."
-                            value={postData.tags}
-                            onChange={e => setPostData({ ...postData, tags: e.target.value })}
+                    <div className="space-y-2">
+                        <Label htmlFor="title">Title</Label>
+                        <Input
+                            id="title"
+                            className="text-lg font-semibold"
+                            placeholder="Enter a descriptive title..."
+                            value={postData.title}
+                            onChange={e => setPostData({ ...postData, title: e.target.value })}
+                            required
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Cover Image</label>
-                        <div className="flex gap-2">
-                            <input
-                                className="flex-1 border p-2 rounded-lg"
-                                placeholder="Image URL (or upload)"
-                                value={postData.image}
-                                onChange={e => setPostData({ ...postData, image: e.target.value })}
+
+                    <div className="space-y-2">
+                        <Label>Content (Markdown Supported)</Label>
+                        <MarkdownEditor
+                            value={postData.content}
+                            onChange={(val) => setPostData({ ...postData, content: val })}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="tags">Tags (comma separated)</Label>
+                            <Input
+                                id="tags"
+                                placeholder="javascript, react, help..."
+                                value={postData.tags}
+                                onChange={e => setPostData({ ...postData, tags: e.target.value })}
                             />
-                            <label className="cursor-pointer bg-gray-100 border p-2 rounded-lg hover:bg-gray-200" title="Upload Image">
-                                <ImageIcon size={24} className="text-gray-600" />
-                                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                            </label>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Cover Image</Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    className="flex-1"
+                                    placeholder="Image URL (or upload)"
+                                    value={postData.image}
+                                    onChange={e => setPostData({ ...postData, image: e.target.value })}
+                                />
+                                <Label className="cursor-pointer">
+                                    <div className="flex items-center justify-center p-2 border rounded-md hover:bg-muted/50 h-10 w-10">
+                                        <ImageIcon size={20} className="text-muted-foreground" />
+                                    </div>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                </Label>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="pt-4 flex justify-end">
-                    <button disabled={loading} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition">
-                        {loading ? 'Publishing...' : (editId ? 'Update Post' : 'Publish Post')}
-                    </button>
-                </div>
-            </form>
+                    <div className="pt-4 flex justify-end">
+                        <Button type="submit" disabled={loading} size="lg">
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Publishing...
+                                </>
+                            ) : (editId ? 'Update Post' : 'Publish Post')}
+                        </Button>
+                    </div>
+                </form>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default function CreatePostPage() {
+    return (
+        <div className="p-8 max-w-4xl mx-auto space-y-8">
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold text-foreground">Create Post</h1>
+            </div>
+            <Suspense fallback={<div className="p-8 text-center">Loading editor...</div>}>
+                <CreatePostContent />
+            </Suspense>
         </div>
     );
 }

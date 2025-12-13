@@ -5,7 +5,11 @@ import { useRouter, useParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCourseStore } from '@/store/useCourseStore';
-import { Lock, Unlock, PlayCircle, FileText, CheckCircle } from 'lucide-react';
+import { Lock, Unlock, PlayCircle, FileText, CheckCircle, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
 
 export default function CourseDetailsPage() {
     const { id } = useParams();
@@ -62,42 +66,46 @@ export default function CourseDetailsPage() {
         }
     };
 
-    if (loading) return <div className="p-8">Loading...</div>;
-    if (!course) return <div className="p-8">Course not found</div>;
+    if (loading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
+    if (!course) return <div className="p-8 text-center text-muted-foreground">Course not found</div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20">
+        <div className="min-h-screen bg-muted/20 pb-20">
             {/* Hero Section */}
-            <div className="bg-white border-b">
+            <div className="bg-card border-b border-border shadow-sm">
                 <div className="max-w-7xl mx-auto px-8 py-12">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-4">{course.title}</h1>
-                    <p className="text-xl text-gray-600 mb-8 max-w-3xl">{course.description}</p>
+                    <Badge className="mb-4">{course.category}</Badge>
+                    <h1 className="text-4xl font-bold text-foreground mb-4 tracking-tight">{course.title}</h1>
+                    <p className="text-xl text-muted-foreground mb-8 max-w-3xl leading-relaxed">{course.description}</p>
 
                     <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                                {course.instructor?.name?.[0]}
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                {course.instructor?.name?.[0] || <User size={20} />}
                             </div>
                             <div>
-                                <div className="text-xs text-gray-500">Instructor</div>
-                                <div className="font-medium">{course.instructor?.name}</div>
+                                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Instructor</div>
+                                <div className="font-medium text-foreground">{course.instructor?.name}</div>
                             </div>
                         </div>
                     </div>
 
                     <div className="mt-8">
                         {isEnrolled ? (
-                            <Link href={`/learning/${course._id}`} className="inline-block bg-green-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:bg-green-700 transition">
-                                Continue Learning
+                            <Link href={`/learning/${course._id}`}>
+                                <Button size="lg" className="text-lg px-8 bg-green-600 hover:bg-green-700">
+                                    Continue Learning
+                                </Button>
                             </Link>
                         ) : (
-                            <button
+                            <Button
                                 onClick={handleEnroll}
                                 disabled={enrollLoading}
-                                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:bg-blue-700 transition disabled:opacity-50"
+                                size="lg"
+                                className="text-lg px-8"
                             >
-                                {enrollLoading ? 'Processing...' : 'Enroll Now - Free'}
-                            </button>
+                                {enrollLoading ? 'Processing...' : 'Enroll Now'}
+                            </Button>
                         )}
                     </div>
                 </div>
@@ -105,39 +113,39 @@ export default function CourseDetailsPage() {
 
             {/* Modules List */}
             <div className="max-w-7xl mx-auto px-8 py-12">
-                <h2 className="text-2xl font-bold mb-6">Course Content</h2>
+                <h2 className="text-2xl font-bold mb-6 text-foreground tracking-tight">Course Content</h2>
 
                 {course.modules && course.modules.length > 0 ? (
                     <div className="space-y-4">
                         {course.modules.map((module) => (
-                            <div key={module._id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                                    <h3 className="font-semibold text-gray-900">{module.title}</h3>
-                                    <span className="text-sm text-gray-500">{module.subModules?.length || 0} items</span>
+                            <Card key={module._id} className="overflow-hidden border-border transition-all hover:shadow-md">
+                                <div className="bg-muted/50 px-6 py-4 border-b border-border flex items-center justify-between">
+                                    <h3 className="font-semibold text-foreground">{module.title}</h3>
+                                    <span className="text-sm text-muted-foreground">{module.subModules?.length || 0} items</span>
                                 </div>
 
-                                <div className="divide-y divide-gray-100">
+                                <div className="divide-y divide-border">
                                     {module.subModules?.map((sub, idx) => (
-                                        <div key={idx} className="px-6 py-3 flex items-center gap-3 text-sm hover:bg-gray-50 transition-colors">
+                                        <div key={idx} className="px-6 py-3 flex items-center gap-3 text-sm hover:bg-muted/30 transition-colors">
                                             {sub.type === 'video' && <PlayCircle size={16} className="text-blue-500" />}
-                                            {sub.type === 'documentation' && <FileText size={16} className="text-gray-500" />}
+                                            {sub.type === 'documentation' && <FileText size={16} className="text-muted-foreground" />}
                                             {sub.type === 'mcq' && <CheckCircle size={16} className="text-green-500" />}
-                                            <span className="text-gray-700">{sub.title}</span>
+                                            <span className="text-foreground">{sub.title}</span>
 
                                             {/* Lock Icon - If not enrolled or previous not completed (logic can be complex, for now just show unlocked for first module) */}
                                             {!isEnrolled && module.order > 1 ? (
-                                                <Lock size={14} className="ml-auto text-gray-400" />
+                                                <Lock size={14} className="ml-auto text-muted-foreground opacity-50" />
                                             ) : (
-                                                <Unlock size={14} className="ml-auto text-green-400 opacity-0" /> // Hidden spacer or show unlock
+                                                <Unlock size={14} className="ml-auto text-green-500 opacity-0" /> // Hidden spacer or show unlock
                                             )}
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </Card>
                         ))}
                     </div>
                 ) : (
-                    <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-500 border border-dashed border-gray-300">
+                    <div className="bg-card rounded-xl shadow-sm p-8 text-center text-muted-foreground border border-dashed border-border">
                         No modules available yet.
                     </div>
                 )}

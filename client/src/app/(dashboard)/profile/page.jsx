@@ -5,6 +5,15 @@ import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { User, Briefcase, GraduationCap, Code, Shield, Trash2, Camera, Upload, Plus, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 export default function ProfilePage() {
     const { user, checkAuth } = useAuthStore();
@@ -32,10 +41,8 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
         try {
-            // Re-fetch user data to get full profile
-            await checkAuth(); // Ensures store is fresh, but we might need direct API if store is light
-            // Assuming checkAuth populates basic info. If extended fields not in store, we need explicit get
-            const res = await api.get('/auth/me'); // Verify this route exists!
+            await checkAuth(); 
+            const res = await api.get('/auth/me'); 
             const d = res.data;
             
             setFormData({
@@ -94,15 +101,12 @@ export default function ProfilePage() {
         setFormData({ ...formData, skills: formData.skills.filter(s => s !== skill) });
     };
 
-    // Arrays (Experience/Education) - Simplified for brevity, usually needs modal or form list
-    // Let's implement specific Add methods
+    // Experience
     const addExperience = () => {
         const newExp = { company: '', role: '', startDate: '', endDate: '', description: '', current: false };
         setFormData({ ...formData, experience: [...formData.experience, newExp] });
     };
     
-    // Handling array updates is tricky in a single large state object without complex handlers
-    // We will use index-based update helpers
     const updateExperience = (index, field, value) => {
         const newExp = [...formData.experience];
         newExp[index][field] = value;
@@ -113,6 +117,7 @@ export default function ProfilePage() {
         setFormData({ ...formData, experience: formData.experience.filter((_, i) => i !== index) });
     };
     
+    // Education
      const addEducation = () => {
         const newEdu = { school: '', degree: '', fieldOfStudy: '', startDate: '', endDate: '', description: '' };
         setFormData({ ...formData, education: [...formData.education, newEdu] });
@@ -145,11 +150,7 @@ export default function ProfilePage() {
             
             const url = res.data.secure_url || res.data.url;
             
-            // Immediately save to profile? or just update state?
-            // Better to update state and let user click Save, OR auto-save for avatar.
-            // Let's update state.
             if (type === 'avatar') {
-                // For avatar, usually we want immediate feedback
                 await api.put('/users/profile', { avatar: url });
                 await checkAuth();
                 toast.success('Avatar updated', { id: toastId });
@@ -174,40 +175,39 @@ export default function ProfilePage() {
     };
 
 
-    if (loading) return <div className="p-10 text-center">Loading Profile...</div>;
+    if (loading) return <div className="p-10 text-center text-muted-foreground">Loading Profile...</div>;
 
     return (
-        <div className="max-w-6xl mx-auto p-6">
+        <div className="max-w-6xl mx-auto p-6 space-y-6">
             {/* Header */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border mb-8 flex flex-col md:flex-row items-center gap-8">
-                <div className="relative group">
-                    <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-lg">
-                         {(user?.avatar) ? (
-                            <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
-                        ) : (
-                            <User className="w-full h-full p-6 text-gray-400" />
-                        )}
+            <Card>
+                <CardContent className="p-8 flex flex-col md:flex-row items-center gap-8">
+                    <div className="relative group">
+                        <Avatar className="w-32 h-32 border-4 border-background shadow-lg">
+                            <AvatarImage src={user?.avatar} />
+                            <AvatarFallback><User className="w-full h-full p-6 text-muted-foreground" /></AvatarFallback>
+                        </Avatar>
+                         <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition rounded-full cursor-pointer text-white">
+                            <Camera size={24} />
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'avatar')} />
+                        </label>
                     </div>
-                     <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition rounded-full cursor-pointer text-white">
-                        <Camera size={24} />
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'avatar')} />
-                    </label>
-                </div>
-                <div className="text-center md:text-left flex-1">
-                    <h1 className="text-3xl font-bold text-gray-900">{formData.name}</h1>
-                    <p className="text-gray-500 font-medium text-lg mb-2">{formData.headline || 'No headline set'}</p>
-                    <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                        {formData.skills.slice(0, 5).map(skill => (
-                            <span key={skill} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">{skill}</span>
-                        ))}
+                    <div className="text-center md:text-left flex-1">
+                        <h1 className="text-3xl font-bold text-foreground">{formData.name}</h1>
+                        <p className="text-muted-foreground font-medium text-lg mb-2">{formData.headline || 'No headline set'}</p>
+                        <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                            {formData.skills.slice(0, 5).map(skill => (
+                                <Badge key={skill} variant="secondary">{skill}</Badge>
+                            ))}
+                        </div>
                     </div>
-                </div>
-                <div>
-                     <button onClick={handleSave} disabled={saving} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition">
-                        {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                </div>
-            </div>
+                    <div>
+                         <Button onClick={handleSave} disabled={saving} size="lg">
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                 {/* Sidebar Navigation */}
@@ -217,55 +217,57 @@ export default function ProfilePage() {
                         { id: 'experience', icon: Briefcase, label: 'Experience' },
                         { id: 'education', icon: GraduationCap, label: 'Education' },
                         { id: 'skills', icon: Code, label: 'Skills & CV' },
-                        { id: 'security', icon: Shield, label: 'Danger Zone', className: 'text-red-600 hover:bg-red-50' }
+                        { id: 'security', icon: Shield, label: 'Danger Zone', className: 'text-destructive hover:bg-destructive/10 hover:text-destructive' }
                     ].map(tab => (
-                        <button
+                        <Button
                             key={tab.id}
+                            variant={activeTab === tab.id ? 'secondary' : 'ghost'}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition ${activeTab === tab.id ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-100'} ${tab.className}`}
+                            className={cn("w-full justify-start", tab.className)}
                         >
-                            <tab.icon size={18} />
+                            <tab.icon size={18} className="mr-2" />
                             {tab.label}
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
                 {/* Main Content */}
                 <div className="md:col-span-3">
-                    <div className="bg-white rounded-2xl shadow-sm border p-8 min-h-[500px]">
+                    <Card className="min-h-[500px]">
+                        <CardContent className="p-8">
                         
                         {/* PERSONAL */}
                         {activeTab === 'personal' && (
                             <div className="space-y-6">
-                                <h2 className="text-2xl font-bold mb-6">Personal Information</h2>
+                                <h2 className="text-2xl font-bold mb-6 text-foreground">Personal Information</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="col-span-2">
-                                        <label className="block text-sm font-medium mb-1">Full Name</label>
-                                        <input name="name" value={formData.name} onChange={handleChange} className="w-full border p-3 rounded-lg" />
+                                    <div className="col-span-2 space-y-2">
+                                        <Label htmlFor="name">Full Name</Label>
+                                        <Input id="name" name="name" value={formData.name} onChange={handleChange} />
                                     </div>
-                                    <div className="col-span-2">
-                                        <label className="block text-sm font-medium mb-1">Headline</label>
-                                        <input name="headline" value={formData.headline} onChange={handleChange} placeholder="e.g. Senior Full Stack Developer" className="w-full border p-3 rounded-lg" />
+                                    <div className="col-span-2 space-y-2">
+                                        <Label htmlFor="headline">Headline</Label>
+                                        <Input id="headline" name="headline" value={formData.headline} onChange={handleChange} placeholder="e.g. Senior Full Stack Developer" />
                                     </div>
-                                    <div className="col-span-2">
-                                        <label className="block text-sm font-medium mb-1">Bio</label>
-                                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={4} className="w-full border p-3 rounded-lg resize-y" />
+                                    <div className="col-span-2 space-y-2">
+                                        <Label htmlFor="bio">Bio</Label>
+                                        <Textarea id="bio" name="bio" value={formData.bio} onChange={handleChange} rows={4} className="resize-y" />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Website</label>
-                                        <input name="website" value={formData.socialLinks.website} onChange={handleSocialChange} className="w-full border p-3 rounded-lg" />
+                                    <div className="space-y-2">
+                                        <Label htmlFor="website">Website</Label>
+                                        <Input id="website" name="website" value={formData.socialLinks.website} onChange={handleSocialChange} />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">LinkedIn</label>
-                                        <input name="linkedin" value={formData.socialLinks.linkedin} onChange={handleSocialChange} className="w-full border p-3 rounded-lg" />
+                                    <div className="space-y-2">
+                                        <Label htmlFor="linkedin">LinkedIn</Label>
+                                        <Input id="linkedin" name="linkedin" value={formData.socialLinks.linkedin} onChange={handleSocialChange} />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">GitHub</label>
-                                        <input name="github" value={formData.socialLinks.github} onChange={handleSocialChange} className="w-full border p-3 rounded-lg" />
+                                    <div className="space-y-2">
+                                        <Label htmlFor="github">GitHub</Label>
+                                        <Input id="github" name="github" value={formData.socialLinks.github} onChange={handleSocialChange} />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Twitter</label>
-                                        <input name="twitter" value={formData.socialLinks.twitter} onChange={handleSocialChange} className="w-full border p-3 rounded-lg" />
+                                    <div className="space-y-2">
+                                        <Label htmlFor="twitter">Twitter</Label>
+                                        <Input id="twitter" name="twitter" value={formData.socialLinks.twitter} onChange={handleSocialChange} />
                                     </div>
                                 </div>
                             </div>
@@ -275,31 +277,31 @@ export default function ProfilePage() {
                         {activeTab === 'experience' && (
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-2xl font-bold">Work Experience</h2>
-                                    <button onClick={addExperience} className="flex items-center gap-2 text-blue-600 font-bold hover:bg-blue-50 px-3 py-1.5 rounded-lg"><Plus size={18}/> Add Position</button>
+                                    <h2 className="text-2xl font-bold text-foreground">Work Experience</h2>
+                                    <Button onClick={addExperience} variant="ghost" className="text-primary hover:text-primary"><Plus size={18} className="mr-2"/> Add Position</Button>
                                 </div>
                                 <div className="space-y-8">
                                     {formData.experience.map((exp, i) => (
-                                        <div key={i} className="p-6 bg-gray-50 rounded-xl relative group border">
-                                            <button onClick={() => removeExperience(i)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500"><X size={20}/></button>
+                                        <div key={i} className="p-6 bg-muted/30 rounded-xl relative group border border-border">
+                                            <Button variant="ghost" size="icon" onClick={() => removeExperience(i)} className="absolute top-4 right-4 text-muted-foreground hover:text-destructive"><X size={20}/></Button>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="col-span-2">
-                                                    <input placeholder="Company Name" className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none font-bold text-lg p-1" value={exp.company} onChange={e => updateExperience(i, 'company', e.target.value)} />
+                                                    <Input placeholder="Company Name" className="bg-transparent border-0 border-b border-input rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 font-bold text-lg" value={exp.company} onChange={e => updateExperience(i, 'company', e.target.value)} />
                                                 </div>
                                                 <div>
-                                                    <input placeholder="Role / Title" className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none p-1" value={exp.role} onChange={e => updateExperience(i, 'role', e.target.value)} />
+                                                    <Input placeholder="Role / Title" className="bg-transparent border-0 border-b border-input rounded-none focus-visible:ring-0 focus-visible:border-primary px-0" value={exp.role} onChange={e => updateExperience(i, 'role', e.target.value)} />
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <input type="checkbox" checked={exp.current} onChange={e => updateExperience(i, 'current', e.target.checked)} id={`curr-${i}`} />
-                                                    <label htmlFor={`curr-${i}`} className="text-sm">Current Role</label>
+                                                    <input type="checkbox" checked={exp.current} onChange={e => updateExperience(i, 'current', e.target.checked)} id={`curr-${i}`} className="form-checkbox rounded text-primary" />
+                                                    <Label htmlFor={`curr-${i}`} className="cursor-pointer">Current Role</Label>
                                                 </div>
                                                 <div className="col-span-2">
-                                                    <textarea placeholder="Description" rows={2} className="w-full border p-2 rounded-lg text-sm bg-white" value={exp.description} onChange={e => updateExperience(i, 'description', e.target.value)} />
+                                                    <Textarea placeholder="Description" rows={2} className="bg-background text-sm" value={exp.description} onChange={e => updateExperience(i, 'description', e.target.value)} />
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
-                                    {formData.experience.length === 0 && <p className="text-center text-gray-400 py-8">No experience added yet.</p>}
+                                    {formData.experience.length === 0 && <p className="text-center text-muted-foreground py-8">No experience added yet.</p>}
                                 </div>
                             </div>
                         )}
@@ -308,27 +310,27 @@ export default function ProfilePage() {
                          {activeTab === 'education' && (
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-2xl font-bold">Education</h2>
-                                    <button onClick={addEducation} className="flex items-center gap-2 text-blue-600 font-bold hover:bg-blue-50 px-3 py-1.5 rounded-lg"><Plus size={18}/> Add School</button>
+                                    <h2 className="text-2xl font-bold text-foreground">Education</h2>
+                                    <Button onClick={addEducation} variant="ghost" className="text-primary hover:text-primary"><Plus size={18} className="mr-2"/> Add School</Button>
                                 </div>
                                 <div className="space-y-8">
                                     {formData.education.map((edu, i) => (
-                                        <div key={i} className="p-6 bg-gray-50 rounded-xl relative group border">
-                                            <button onClick={() => removeEducation(i)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500"><X size={20}/></button>
+                                        <div key={i} className="p-6 bg-muted/30 rounded-xl relative group border border-border">
+                                            <Button variant="ghost" size="icon" onClick={() => removeEducation(i)} className="absolute top-4 right-4 text-muted-foreground hover:text-destructive"><X size={20}/></Button>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="col-span-2">
-                                                    <input placeholder="School / University" className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none font-bold text-lg p-1" value={edu.school} onChange={e => updateEducation(i, 'school', e.target.value)} />
+                                                    <Input placeholder="School / University" className="bg-transparent border-0 border-b border-input rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 font-bold text-lg" value={edu.school} onChange={e => updateEducation(i, 'school', e.target.value)} />
                                                 </div>
                                                 <div>
-                                                    <input placeholder="Degree" className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none p-1" value={edu.degree} onChange={e => updateEducation(i, 'degree', e.target.value)} />
+                                                    <Input placeholder="Degree" className="bg-transparent border-0 border-b border-input rounded-none focus-visible:ring-0 focus-visible:border-primary px-0" value={edu.degree} onChange={e => updateEducation(i, 'degree', e.target.value)} />
                                                 </div>
                                                 <div>
-                                                    <input placeholder="Field of Study" className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none p-1" value={edu.fieldOfStudy} onChange={e => updateEducation(i, 'fieldOfStudy', e.target.value)} />
+                                                    <Input placeholder="Field of Study" className="bg-transparent border-0 border-b border-input rounded-none focus-visible:ring-0 focus-visible:border-primary px-0" value={edu.fieldOfStudy} onChange={e => updateEducation(i, 'fieldOfStudy', e.target.value)} />
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
-                                     {formData.education.length === 0 && <p className="text-center text-gray-400 py-8">No education added yet.</p>}
+                                     {formData.education.length === 0 && <p className="text-center text-muted-foreground py-8">No education added yet.</p>}
 
                                 </div>
                             </div>
@@ -338,17 +340,16 @@ export default function ProfilePage() {
                         {activeTab === 'skills' && (
                             <div className="space-y-8">
                                 <div>
-                                    <h2 className="text-2xl font-bold mb-6">Skills</h2>
+                                    <h2 className="text-2xl font-bold mb-6 text-foreground">Skills</h2>
                                     <div className="flex flex-wrap gap-2 mb-4">
                                         {formData.skills.map(skill => (
-                                            <span key={skill} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                                            <Badge key={skill} variant="secondary" className="flex items-center gap-1 pl-3 pr-2 py-1">
                                                 {skill}
-                                                <button onClick={() => removeSkill(skill)} className="hover:text-red-500"><X size={14}/></button>
-                                            </span>
+                                                <button onClick={() => removeSkill(skill)} className="hover:text-destructive ml-1"><X size={14}/></button>
+                                            </Badge>
                                         ))}
                                     </div>
-                                    <input 
-                                        className="w-full border p-3 rounded-lg" 
+                                    <Input 
                                         placeholder="Type skill and press Enter..." 
                                         value={skillInput}
                                         onChange={e => setSkillInput(e.target.value)}
@@ -356,21 +357,23 @@ export default function ProfilePage() {
                                     />
                                 </div>
                                 
-                                <div className="pt-8 border-t">
-                                    <h2 className="text-2xl font-bold mb-6">Resume / CV</h2>
-                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition cursor-pointer relative">
+                                <Separator />
+
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-6 text-foreground">Resume / CV</h2>
+                                    <div className="border-2 border-dashed border-input rounded-xl p-8 text-center hover:bg-muted/50 transition cursor-pointer relative">
                                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(e, 'cv')} />
-                                        <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+                                        <Upload className="mx-auto text-muted-foreground mb-4" size={48} />
                                         {formData.cv ? (
                                             <div>
-                                                <p className="text-green-600 font-bold mb-2">CV Uploaded Successfully</p>
-                                                <a href={formData.cv} target="_blank" className="text-blue-600 underline text-sm z-10 relative" onClick={e => e.stopPropagation()}>View Current CV</a>
-                                                <p className="text-xs text-gray-500 mt-2">Click to replace</p>
+                                                <p className="text-green-600 dark:text-green-400 font-bold mb-2">CV Uploaded Successfully</p>
+                                                <a href={formData.cv} target="_blank" className="text-primary underline text-sm z-10 relative" onClick={e => e.stopPropagation()}>View Current CV</a>
+                                                <p className="text-xs text-muted-foreground mt-2">Click to replace</p>
                                             </div>
                                         ) : (
                                             <div>
-                                                <p className="font-bold text-gray-700">Drop your resume here or click to upload</p>
-                                                <p className="text-sm text-gray-500">PDF, DOCX supported</p>
+                                                <p className="font-bold text-foreground">Drop your resume here or click to upload</p>
+                                                <p className="text-sm text-muted-foreground">PDF, DOCX supported</p>
                                             </div>
                                         )}
                                     </div>
@@ -381,20 +384,21 @@ export default function ProfilePage() {
                         {/* DANGER ZONE */}
                         {activeTab === 'security' && (
                             <div className="space-y-6">
-                                <h2 className="text-2xl font-bold mb-6 text-red-600 flex items-center gap-2"><Shield className="text-red-600"/> Danger Zone</h2>
-                                <p className="text-gray-600">Once you delete your account, there is no going back. Please be certain.</p>
+                                <h2 className="text-2xl font-bold mb-6 text-destructive flex items-center gap-2"><Shield size={24}/> Danger Zone</h2>
+                                <p className="text-muted-foreground">Once you delete your account, there is no going back. Please be certain.</p>
                                 
-                                <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex justify-between items-center">
+                                <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-6 flex justify-between items-center">
                                     <div>
-                                        <h3 className="text-lg font-bold text-red-700">Delete Account</h3>
-                                        <p className="text-red-600 text-sm">Permanently remove your account and all data</p>
+                                        <h3 className="text-lg font-bold text-destructive">Delete Account</h3>
+                                        <p className="text-destructive/80 text-sm">Permanently remove your account and all data</p>
                                     </div>
-                                    <button onClick={handleDeleteAccount} className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">Delete Account</button>
+                                    <Button onClick={handleDeleteAccount} variant="destructive">Delete Account</Button>
                                 </div>
                             </div>
                         )}
 
-                    </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>

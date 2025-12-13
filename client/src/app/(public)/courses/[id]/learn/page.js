@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/useAuthStore';
-import ReactPlayer from 'react-player/youtube';
+import ReactPlayer from 'react-player';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MCQComponent from '@/components/MCQComponent';
