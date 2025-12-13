@@ -16,6 +16,7 @@ export default function DashboardPage() {
     const router = useRouter();
     const [stats, setStats] = useState(null);
     const [instructorStats, setInstructorStats] = useState(null);
+    const [certificates, setCertificates] = useState([]);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -25,6 +26,9 @@ export default function DashboardPage() {
                 api.get('/admin/stats').then(res => setStats(res.data)).catch(err => console.error(err));
             } else if (user?.role === 'instructor') {
                 api.get('/courses/instructor/stats').then(res => setInstructorStats(res.data)).catch(err => console.error(err));
+            } else if (user?.role === 'student') {
+                 // Fetch certificates
+                 api.get('/certificates/my').then(res => setCertificates(res.data)).catch(err => console.error(err));
             }
         }
     }, [isAuthenticated, router, user]);
@@ -148,8 +152,15 @@ export default function DashboardPage() {
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {user.enrolledCourses.map(enrollment => {
                                     const course = enrollment.course;
-                                    const courseId = typeof course === 'object' ? course._id : course;
-                                    const courseTitle = typeof course === 'object' ? course.title : 'Course Listing';
+                                    // Handle case where course might be null (deleted) or not populated
+                                    if (!course) return null;
+
+                                    const courseId = course._id || course; // If populated, use _id, else use the string ID (fallback)
+                                    const courseTitle = course.title || 'Untitled Course';
+                                    
+                                    // If we somehow have a string ID but no title, it means population failed or course deleted.
+                                    // Relaxed check: Allow display if we have an ID, even if not fully populated (debug mode)
+                                    // if (typeof course === 'string') return null;
 
                                     return (
                                         <Link href={`/learning/${courseId}`} key={enrollment._id}>
@@ -190,11 +201,32 @@ export default function DashboardPage() {
                         <h3 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
                             <Award size={24} className="text-yellow-600 dark:text-yellow-400" /> My Certificates
                         </h3>
-                        <Card>
-                            <CardContent className="p-6 flex items-center justify-center h-32 text-muted-foreground">
-                                Complete a course to earn certificates!
-                            </CardContent>
-                        </Card>
+                        {certificates.length > 0 ? (
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {certificates.map(cert => (
+                                    <Card key={cert.certificateId} className="hover:shadow-md transition card-hover border-l-4 border-l-yellow-500">
+                                        <CardContent className="p-6">
+                                            <h4 className="font-bold text-lg mb-1 truncate text-foreground">{cert.courseTitle}</h4>
+                                            <p className="text-sm text-muted-foreground mb-4">Issued: {new Date(cert.issueDate).toLocaleDateString()}</p>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold uppercase tracking-wider">Verified</span>
+                                                <Link href={`/certificate/${cert.certificateId}`}>
+                                                    <Button variant="outline" size="sm" className="gap-2">
+                                                        <Medal size={14} /> View
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        ) : (
+                            <Card>
+                                <CardContent className="p-6 flex items-center justify-center h-32 text-muted-foreground">
+                                    Complete a course to earn certificates!
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </div>
             )}

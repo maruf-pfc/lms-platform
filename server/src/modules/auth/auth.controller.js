@@ -41,20 +41,25 @@ exports.login = async (req, res, next) => {
   }
 };
 
-exports.getMe = async (req, res) => {
-  // Return full user profile (excluding passwordHash which middleware should handle or we explicitly exclude)
-  // Return full user profile (excluding passwordHash which middleware should handle or we explicitly exclude)
-  // Assuming req.user is the mongoose doc, but we need to populate enrolledCourses if usage requires it.
-  // req.user from middleware might not be fully populated as we need.
-  // Re-fetch to be safe and populate.
-  const User = require("../users/user.model");
-  const user = await User.findById(req.user.id).populate("enrolledCourses.course").exec();
-  
-  if(!user) return res.status(404).json({ message: "User not found" });
+exports.getMe = async (req, res, next) => {
+  try {
+    const User = require("../users/user.model");
+    // Explicitly select fields if needed, but for now just populate
+    const user = await User.findById(req.user.id)
+        .populate({
+            path: 'enrolledCourses.course',
+            select: 'title description thumbnail instructor slug' // Select fields to avoid massive payloads
+        })
+        .exec();
+    
+    if(!user) return res.status(404).json({ message: "User not found" });
 
-  const userObj = user.toObject();
-  delete userObj.passwordHash;
-  res.json(userObj);
+    const userObj = user.toObject();
+    delete userObj.passwordHash;
+    res.json(userObj);
+  } catch (err) {
+    next(err);
+  }
 };
 
 exports.logout = async (req, res) => {

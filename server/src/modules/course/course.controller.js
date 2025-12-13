@@ -111,9 +111,11 @@ exports.enrollCourse = async (req, res, next) => {
         }
 
         // 1. Check if already enrolled in THIS course
-        const user = await User.findById(userId);
+        // We populate here to also check if "active" courses are valid (not deleted)
+        const user = await User.findById(userId).populate('enrolledCourses.course');
+        
         const existingEnrollment = user.enrolledCourses.find(
-            (e) => e.course.toString() === courseId
+            (e) => e.course && e.course._id.toString() === courseId
         );
 
         if (existingEnrollment) {
@@ -122,7 +124,8 @@ exports.enrollCourse = async (req, res, next) => {
 
         // 2. Check strict constraint: "Student can purchase 1 course at a time"
         // Meaning: No other ACTIVE (not completed) course.
-        const activeCourse = user.enrolledCourses.find((e) => e.completedAt === null);
+        // We only count active courses that actually exist (e.course !== null)
+        const activeCourse = user.enrolledCourses.find((e) => e.completedAt === null && e.course !== null);
 
         if (activeCourse) {
             return res.status(400).json({
@@ -135,8 +138,14 @@ exports.enrollCourse = async (req, res, next) => {
         user.enrolledCourses.push({
             course: courseId,
             enrolledAt: new Date(),
+            completedModules: []
         });
-        await user.save();
+        try {
+            await user.save();
+        } catch (saveErr) {
+            console.error("User Save Failed during Enrollment:", saveErr);
+            return res.status(500).json({ message: "Enrollment failed: " + saveErr.message });
+        }
 
         // Update Course
         await Course.findByIdAndUpdate(courseId, {

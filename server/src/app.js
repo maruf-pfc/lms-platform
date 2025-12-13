@@ -20,6 +20,10 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
 
+// Security Middleware
+const arcjetMiddleware = require("./middlewares/arcjet.middleware");
+app.use(arcjetMiddleware); // Global protection
+
 app.get("/health", (req, res) =>
   res.json({ status: "ok", env: process.env.NODE_ENV || "dev" })
 );
