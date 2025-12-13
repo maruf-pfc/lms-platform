@@ -43,10 +43,18 @@ exports.login = async (req, res, next) => {
 
 exports.getMe = async (req, res) => {
   // Return full user profile (excluding passwordHash which middleware should handle or we explicitly exclude)
-  // Assuming req.user is the mongoose doc
-  const user = req.user.toObject();
-  delete user.passwordHash;
-  res.json(user);
+  // Return full user profile (excluding passwordHash which middleware should handle or we explicitly exclude)
+  // Assuming req.user is the mongoose doc, but we need to populate enrolledCourses if usage requires it.
+  // req.user from middleware might not be fully populated as we need.
+  // Re-fetch to be safe and populate.
+  const User = require("../users/user.model");
+  const user = await User.findById(req.user.id).populate("enrolledCourses.course").exec();
+  
+  if(!user) return res.status(404).json({ message: "User not found" });
+
+  const userObj = user.toObject();
+  delete userObj.passwordHash;
+  res.json(userObj);
 };
 
 exports.logout = async (req, res) => {

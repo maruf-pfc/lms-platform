@@ -33,18 +33,24 @@ export default function Navbar() {
             { href: '/forum', label: 'Forum' },
             { href: '/blog', label: 'Blog' },
             { href: '/news', label: 'News' },
+            { href: '/cv-generator', label: 'CV Builder', highlight: true },
           ].map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'text-sm font-medium transition-colors',
+                'text-sm font-medium transition-colors flex items-center gap-1',
                 isActive(item.href)
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
               {item.label}
+              {item.highlight && (
+                <span className="bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm animate-pulse">
+                  NEW
+                </span>
+              )}
             </Link>
           ))}
         </nav>

@@ -221,9 +221,22 @@ export default function LearningPage() {
                         // Module is locked IF: Not first module AND Previous module is NOT completed
                         let isLocked = false;
                         if (i > 0) {
-                            const prevModuleId = course.modules[i - 1]._id;
-                            if (!completedModules.includes(prevModuleId)) {
-                                isLocked = true;
+                            // Traverse backwards to find the last *non-empty* module
+                            let prevIndex = i - 1;
+                            let prevModule = course.modules[prevIndex];
+                            
+                            // If previous module is empty, it shouldn't block. 
+                            // We keep going back until we find a non-empty one or hit start.
+                            while (prevIndex >= 0 && (!prevModule.subModules || prevModule.subModules.length === 0)) {
+                                prevIndex--;
+                                prevModule = course.modules[prevIndex];
+                            }
+
+                            if (prevIndex >= 0) {
+                                // We found a non-empty previous module, check if it is completed
+                                if (!completedModules.includes(prevModule._id)) {
+                                    isLocked = true;
+                                }
                             }
                         }
 

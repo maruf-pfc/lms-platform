@@ -4,7 +4,7 @@ const SubModuleSchema = new Schema({
     title: { type: String, required: true },
     type: {
         type: String,
-        enum: ["video", "documentation", "mcq", "summary", "project"],
+        enum: ["video", "documentation", "mcq", "summary", "project", "text"],
         required: true,
     },
     content: { type: String }, // For markdown, can be long text

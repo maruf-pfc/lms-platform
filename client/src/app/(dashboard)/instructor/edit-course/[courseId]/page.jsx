@@ -53,28 +53,46 @@ export default function EditCoursePage() {
     const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
     const [tempTitle, setTempTitle] = useState('');
     const [targetModuleId, setTargetModuleId] = useState(null); // For adding lesson
+    const [editingModuleId, setEditingModuleId] = useState(null); // For editing module
 
     // --- Module Actions ---
 
     const openModuleModal = () => {
         setTempTitle('');
+        setEditingModuleId(null);
         setIsModuleModalOpen(true);
     };
 
-    const handleAddModule = async (e) => {
+    const openEditModuleModal = (module) => {
+        setTempTitle(module.title);
+        setEditingModuleId(module._id);
+        setIsModuleModalOpen(true);
+    };
+
+    const handleAddOrEditModule = async (e) => {
         e.preventDefault();
         if (!tempTitle.trim()) return;
         
         try {
-            const res = await api.post(`/courses/${courseId}/modules`, {
-                title: tempTitle,
-                order: modules.length
-            });
-            setModules([...modules, { ...res.data, subModules: [] }]);
-            toast.success('Module added');
+            if (editingModuleId) {
+                // Edit existing
+                const res = await api.put(`/courses/${courseId}/modules/${editingModuleId}`, {
+                    title: tempTitle
+                });
+                setModules(modules.map(m => m._id === editingModuleId ? { ...m, title: res.data.title } : m));
+                toast.success('Module updated');
+            } else {
+                // Create new
+                const res = await api.post(`/courses/${courseId}/modules`, {
+                    title: tempTitle,
+                    order: modules.length
+                });
+                setModules([...modules, { ...res.data, subModules: [] }]);
+                toast.success('Module added');
+            }
             setIsModuleModalOpen(false);
         } catch (err) {
-            toast.error('Failed to add module');
+            toast.error(editingModuleId ? 'Failed to update module' : 'Failed to add module');
         }
     };
 
@@ -151,7 +169,11 @@ export default function EditCoursePage() {
 
     const selectLesson = (moduleId, lesson) => {
         setSelectedLesson({ moduleId, lesson });
-        setLessonForm({ ...lesson }); // Copy data to form
+        // Map backend fields to form fields
+        setLessonForm({ 
+            ...lesson,
+            url: lesson.videoUrl || lesson.url || '' // handling both just in case
+        }); 
     };
 
     const saveActiveLesson = async () => {
@@ -196,8 +218,8 @@ export default function EditCoursePage() {
 
     return (
         <div className="flex h-screen bg-background overflow-hidden">
-            <Modal isOpen={isModuleModalOpen} onClose={() => setIsModuleModalOpen(false)} title="Add New Module">
-                <form onSubmit={handleAddModule} className="space-y-4">
+            <Modal isOpen={isModuleModalOpen} onClose={() => setIsModuleModalOpen(false)} title={editingModuleId ? "Edit Module" : "Add New Module"}>
+                <form onSubmit={handleAddOrEditModule} className="space-y-4">
                     <div>
                         <Label>Module Title</Label>
                         <Input 
@@ -208,7 +230,7 @@ export default function EditCoursePage() {
                             onChange={e => setTempTitle(e.target.value)}
                         />
                     </div>
-                    <Button type="submit" className="w-full">Create Module</Button>
+                    <Button type="submit" className="w-full">{editingModuleId ? "Update Module" : "Create Module"}</Button>
                 </form>
             </Modal>
 
@@ -259,9 +281,14 @@ export default function EditCoursePage() {
                                         <Badge variant="outline" className="w-6 h-6 flex items-center justify-center rounded-full p-0">{mIdx + 1}</Badge>
                                         {module.title}
                                     </h3>
-                                    <Button variant="ghost" size="icon" onClick={() => deleteModule(module._id)} className="opacity-0 group-hover:opacity-100 h-6 w-6 text-muted-foreground hover:text-destructive">
-                                        <Trash2 size={14} />
-                                    </Button>
+                                    <div className="flex items-center opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" onClick={() => openEditModuleModal(module)} className="h-6 w-6 text-muted-foreground hover:text-primary">
+                                            <Edit2 size={14} />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => deleteModule(module._id)} className="h-6 w-6 text-muted-foreground hover:text-destructive">
+                                            <Trash2 size={14} />
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-1 ml-2 pl-4 border-l-2 border-border">
@@ -276,8 +303,8 @@ export default function EditCoursePage() {
                                             }`}
                                         >
                                             <div className="flex items-center gap-2 min-w-0">
-                                                {lesson.type === 'video' && <Video size={14} />}
                                                 {lesson.type === 'text' && <FileText size={14} />}
+                                                {lesson.type === 'video' && <Video size={14} />}
                                                 {lesson.type === 'mcq' && <HelpCircle size={14} />}
                                                 {lesson.type === 'project' && <Code size={14} />}
                                                 <span className="truncate">{lesson.title}</span>
@@ -302,7 +329,6 @@ export default function EditCoursePage() {
                             </div>
                         ))
                     )}
-                    
                     {activeTab !== 'settings' && (
                         <Button 
                             variant="outline" 
@@ -379,10 +405,10 @@ export default function EditCoursePage() {
                             <div className="bg-card border-b px-8 py-4 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                      <div className={`p-2 rounded-lg bg-accent text-accent-foreground`}>
+                                        {lessonForm.type === 'text' && <FileText size={20} />}
                                         {lessonForm.type === 'video' && <Video size={20} />}
                                         {lessonForm.type === 'mcq' && <HelpCircle size={20} />}
                                         {lessonForm.type === 'project' && <Code size={20} />}
-                                        {lessonForm.type === 'text' && <FileText size={20} />}
                                      </div>
                                      <Input 
                                         className="text-lg font-bold border-none shadow-none focus-visible:ring-0 px-0 h-auto"
@@ -397,8 +423,8 @@ export default function EditCoursePage() {
                                         value={lessonForm.type}
                                         onChange={e => setLessonForm({...lessonForm, type: e.target.value})}
                                     >
-                                        <option value="video">Video Lesson</option>
                                         <option value="text">Written / Markdown</option>
+                                        <option value="video">Video Lesson</option>
                                         <option value="mcq">Quiz (MCQ)</option>
                                         <option value="project">Project Assignment</option>
                                     </select>

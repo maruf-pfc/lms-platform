@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "LMS Platform",
+  title: "Build To Learn",
   description: "Advanced Learning Management System",
 };
 

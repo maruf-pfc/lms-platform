@@ -85,7 +85,7 @@ export default function DashboardPage() {
                                 <div className="bg-yellow-100 dark:bg-yellow-900/20 p-3 rounded-full text-yellow-600 dark:text-yellow-400"><DollarSign size={24} /></div>
                                 <div>
                                     <div className="text-muted-foreground text-sm">Earnings</div>
-                                    <div className="text-2xl font-bold text-foreground">${instructorStats?.totalEarnings || 0}</div>
+                                    <div className="text-2xl font-bold text-foreground">৳{instructorStats?.totalEarnings || 0}</div>
                                 </div>
                             </CardContent>
                         </Card>

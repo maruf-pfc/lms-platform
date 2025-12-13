@@ -94,6 +94,7 @@ export default function Sidebar() {
                         <>
                             <NavItem href="/courses" icon={BookOpen} label="Explore Courses" />
                             <NavItem href="/leaderboard" icon={Medal} label="Leaderboard" />
+                            <NavItem href="/cv-generator" icon={FileText} label="CV Builder" />
                         </>
                     )}
 

@@ -128,8 +128,9 @@ export default function CourseDetailsPage() {
                                     {module.subModules?.map((sub, idx) => (
                                         <div key={idx} className="px-6 py-3 flex items-center gap-3 text-sm hover:bg-muted/30 transition-colors">
                                             {sub.type === 'video' && <PlayCircle size={16} className="text-blue-500" />}
-                                            {sub.type === 'documentation' && <FileText size={16} className="text-muted-foreground" />}
+                                            {(sub.type === 'documentation' || sub.type === 'text') && <FileText size={16} className="text-muted-foreground" />}
                                             {sub.type === 'mcq' && <CheckCircle size={16} className="text-green-500" />}
+                                            {sub.type === 'project' && <CheckCircle size={16} className="text-purple-500" />}
                                             <span className="text-foreground">{sub.title}</span>
 
                                             {/* Lock Icon - If not enrolled or previous not completed (logic can be complex, for now just show unlocked for first module) */}

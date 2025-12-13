@@ -28,6 +28,10 @@ export default function Footer() {
           <FooterLink href="/courses">Courses</FooterLink>
           <FooterLink href="/forum">Forum</FooterLink>
           <FooterLink href="/blog">Blog</FooterLink>
+          <div className="flex items-center gap-2">
+            <FooterLink href="/cv-generator">CV Builder</FooterLink>
+            <span className="bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">New</span>
+          </div>
           <FooterLink href="/become-instructor">Become Instructor</FooterLink>
         </FooterGroup>
 
